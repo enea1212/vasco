@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'package:vasco/screens/home_screen.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class AuthLayout extends StatelessWidget {
   const AuthLayout({
@@ -25,29 +26,23 @@ class AuthLayout extends StatelessWidget {
 
   final Widget? pageIfNotConnected;
 
-  @override
+
+@override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: authService,
-      builder: (context, currentAuthService, child) {
-        return StreamBuilder(
-          stream: currentAuthService.authStateChanges(),
-          builder: (context, snapshot) {
-            Widget widget;
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              widget = const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            } else if (snapshot.hasData) {
-              widget = HomeScreen();
-            } else {
-              widget = pageIfNotConnected ?? const LoginScreen();
-            }
-            return widget;
-          },
-        );
+    // Preluăm serviciul din Provider
+    final authService = context.watch<AuthService>(); 
+
+    return StreamBuilder(
+      stream: authService.authStateChanges(), // Folosim instanța din Provider
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        } else if (snapshot.hasData) {
+          return HomeScreen();
+        } else {
+          return pageIfNotConnected ?? const LoginScreen();
+        }
       },
     );
   }
 }
-

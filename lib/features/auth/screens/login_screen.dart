@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/features/auth/screens/register_screen.dart';
+import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,7 +11,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final AuthService _authService = AuthService();
+  
+  
+  
+  
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -24,6 +28,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleEmailAuth() async {
+
+
+    final authService = context.read<AuthService>();
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
@@ -35,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       if (_isSignUp) {
-        await _authService.createAccount(
+        await authService.createAccount(
           _emailController.text.trim(),
           _passwordController.text,
         );
@@ -45,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        await _authService.signInWithEmail(
+        await authService.signInWithEmail(
           _emailController.text.trim(),
           _passwordController.text,
         );
@@ -65,7 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signInWithGoogle();
+      final authService = context.read<AuthService>();
+      await authService.signInWithGoogle();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

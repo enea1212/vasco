@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -30,7 +31,7 @@ Future<void> _register() async {
 
   try {
     // Apelul către serviciul tău de autentificare
-    await authService.value.createAccount(
+    await context.read<AuthService>().createAccount(
       _emailController.text.trim(),
        _passwordController.text,
     );
@@ -56,6 +57,11 @@ Future<void> _register() async {
   }
 }
 
+
+
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,7 +79,7 @@ Future<void> _register() async {
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Full Name'),
                 validator: (value) =>
-                    value?.isEmpty ?? true ? 'Please enter your name' : null,
+                    value?.isEmpty ?? true ? 'Please enter your username' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(

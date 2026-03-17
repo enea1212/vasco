@@ -5,23 +5,27 @@ import 'package:vasco/screens/home_screen.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'firebase_options.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
-
-
+import 'package:provider/provider.dart'; 
+import 'package:vasco/services/auth_service.dart';
 
 Future<void> main() async {
   // 1. Asigură-te că serviciile Flutter sunt inițializate
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 2. Încarcă fișierul .env
-  try {
-    await dotenv.load(fileName: ".env");
-    print("Fișierul .env a fost încărcat cu succes!");
-  } catch (e) {
-    print("Eroare la încărcarea .env: $e");
-  }
+  await Firebase.initializeApp();
 
-  runApp(const MyApp());
+  
+  
+
+  // 3. Injectează AuthService folosind MultiProvider
+  runApp(
+    MultiProvider(
+      providers: [
+        // Creăm o singură instanță de AuthService pentru toată aplicația
+        Provider<AuthService>(create: (_) => AuthService()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

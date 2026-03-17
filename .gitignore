@@ -53,3 +53,6 @@ ios/Runner/GoogleService-Info.plist
 # Dacă ai generat un keystore manual pentru release
 *.jks
 *.keystore
+
+# sunt multe api-uri aici
+firebase_options.dart

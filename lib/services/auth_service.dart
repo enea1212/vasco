@@ -4,7 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 
 // este un state management 
-ValueNotifier<AuthService> authService= ValueNotifier(AuthService());
+//ValueNotifier<AuthService> authService= ValueNotifier(AuthService());
 
 class AuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;

@@ -1,16 +1,18 @@
-// ignore: unused_import
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:vasco/services/auth_service.dart';
 
 class HomeScreen extends StatelessWidget {
-  final AuthService _authService = AuthService();
+  
 
   HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = _authService.currentUser;
+    final authService = context.read<AuthService>();
+    final user = authService.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -19,7 +21,7 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await _authService.signOut();
+              await authService.signOut();
             },
           ),
         ],
@@ -45,7 +47,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () async {
-                await _authService.signOut();
+                await authService.signOut();
               },
               child: const Text('Sign Out'),
             ),
