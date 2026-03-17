@@ -55,4 +55,4 @@ ios/Runner/GoogleService-Info.plist
 *.keystore
 
 # sunt multe api-uri aici
-firebase_options.dart
+lib/firebase_options.dart
