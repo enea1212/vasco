@@ -36,7 +36,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Welcome!',
+              'Welcome, ${user?.displayName?.trim().isNotEmpty == true ? user!.displayName! : (user?.email?.split('@').first ?? 'Guest')}!',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
