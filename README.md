@@ -1,4 +1,5 @@
 # vasco
+<<<<<<< HEAD
 
 A new Flutter project.
 
@@ -15,3 +16,5 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+>>>>>>> d4c7fdde555028a72317f5226f662d3292242c75
