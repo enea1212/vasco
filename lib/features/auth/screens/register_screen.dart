@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:vasco/providers/auth_provider.dart';
-import 'package:vasco/services/auth_service.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -12,10 +11,12 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
+
   bool _isPasswordVisible = false;
 
   @override
@@ -27,163 +28,237 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-
-String? _validateEmail(String? value) {
-  if (value == null || value.isEmpty) {
-    return 'Te rugăm să introduci un email';
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Enter email';
+    }
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value)) {
+      return 'Invalid email';
+    }
+    return null;
   }
-  // Expresie regulată pentru un format de email valid
-  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-  if (!emailRegex.hasMatch(value)) {
-    return 'Formatul emailului este invalid (ex: nume@email.com)';
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      await context.read<AuthViewModel>().register(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account created successfully')),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Error'),
+          content: Text(e.toString()),
+        ),
+      );
+    }
   }
-  return null;
-}
 
-// Aceasta este "puntea" dintre buton și Provider
-Future<void> _register() async {
-  // 1. Verificăm dacă datele introduse sunt valide (Regex email, lungime parolă)
-  if (!_formKey.currentState!.validate()) return;
-
-  // 2. Apelăm metoda 'register' care există deja în AuthViewModel
-  try {
-    await context.read<AuthViewModel>().register(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      name: _nameController.text.trim(),
-    );
-
-    if (!mounted) return;
-
-    // 3. Dacă a reușit, afișăm un mesaj și închidem pagina
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account created successfully')),
-    );
-    Navigator.of(context).pop();
-
-  } catch (e) {
-    if (!mounted) return;
-    
-    // 4. Dacă a apărut o eroare, o afișăm într-un pop-up
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Registration Error'),
-        content: Text(e.toString()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-
-@override
-Widget build(BuildContext context) {
-  // 1. Ascultăm starea din AuthViewModel (Provider) pentru a detecta loading-ul [cite: 7, 14]
-  final authVM = context.watch<AuthViewModel>();
-
-  return Scaffold(
-    appBar: AppBar(title: const Text('Register')),
-    body: SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey, // Folosit pentru validarea locală Regex [cite: 17]
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Câmp Nume
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                border: UnderlineInputBorder(), // Uniformizare design
-              ),
-              validator: (value) =>
-                  value?.isEmpty ?? true ? 'Please enter your username' : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Câmp Email cu validare Regex locală [cite: 17]
-            TextFormField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: UnderlineInputBorder(),
-              ),
-              validator: _validateEmail,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-
-            // Câmp Parolă cu vizibilitate (ochi) 
-            TextFormField( // Schimbat din TextField în TextFormField pentru consistență
-              controller: _passwordController,
-              obscureText: !_isPasswordVisible,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: const Icon(Icons.lock),
-                border: const UnderlineInputBorder(),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.deepPurple, width: 2),
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
-                ),
-              ),
-              validator: (value) => (value?.length ?? 0) < 6 
-                  ? 'Password must be at least 6 characters' 
-                  : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Câmp Confirmare Parolă
-            TextFormField(
-              controller: _confirmPasswordController,
-              decoration: const InputDecoration(
-                labelText: 'Confirm Password',
-                border: UnderlineInputBorder(),
-              ),
-              obscureText: true,
-              validator: (value) => value != _passwordController.text
-                  ? 'Passwords do not match'
-                  : null,
-            ),
-            const SizedBox(height: 24),
-
-            // 2. Butonul reparat care folosește authVM.isLoading 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                // Dezactivăm butonul dacă procesul de înregistrare este în curs 
-                onPressed: authVM.isLoading ? null : _register,
-                child: authVM.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.deepPurple,
-                        ),
-                      )
-                    : const Text('Register'),
-              ),
-            ),
-          ],
+  // 🔥 INPUT COMPONENT REUTILIZABIL
+  Widget _buildInput({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool isPassword = false,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: isPassword,
+      validator: validator,
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: const Color(0xFFF4F6F8),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
         ),
       ),
-    ),
-  );
-}}
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authVM = context.watch<AuthViewModel>();
+
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+
+                  // BACK BUTTON
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  const Text(
+                    "Create Account",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // CARD
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 30,
+                          spreadRadius: 5,
+                          color: Colors.black.withOpacity(0.2),
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          _buildInput(
+                            controller: _nameController,
+                            hint: "Username",
+                            icon: Icons.person,
+                            validator: (v) =>
+                                v?.isEmpty ?? true ? 'Enter username' : null,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          _buildInput(
+                            controller: _emailController,
+                            hint: "Email",
+                            icon: Icons.email,
+                            validator: _validateEmail,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          _buildInput(
+                            controller: _passwordController,
+                            hint: "Password",
+                            icon: Icons.lock,
+                            isPassword: true,
+                            validator: (v) =>
+                                (v?.length ?? 0) < 6 ? 'Min 6 chars' : null,
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          _buildInput(
+                            controller: _confirmPasswordController,
+                            hint: "Confirm Password",
+                            icon: Icons.lock_outline,
+                            isPassword: true,
+                            validator: (v) =>
+                                v != _passwordController.text
+                                    ? 'Passwords do not match'
+                                    : null,
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // BUTTON
+                          GestureDetector(
+                            onTap: authVM.isLoading ? null : _register,
+                            child: Container(
+                              height: 55,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF6C63FF),
+                                    Color(0xFF4B47C9),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    blurRadius: 15,
+                                    color: Colors.black.withOpacity(0.2),
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: authVM.isLoading
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white)
+                                    : const Text(
+                                        "Register",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      "Already have an account? Sign In",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
