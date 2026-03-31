@@ -56,3 +56,9 @@ ios/Runner/GoogleService-Info.plist
 
 # sunt multe api-uri aici
 lib/firebase_options.dart
+
+# Flutter/Dart generated files
+**/generated_plugin_registrant.cc
+**/generated_plugin_registrant.h
+**/generated_plugins.cmake
+**/GeneratedPluginRegistrant.swift
