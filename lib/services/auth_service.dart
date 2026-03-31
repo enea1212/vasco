@@ -2,132 +2,112 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:vasco/models/user_model.dart';
-
-
-
-//Acesta este "Executantul". El nu știe nimic despre interfața grafică,
-// butoane sau erori afișate pe ecran.Responsabilitate: Comunică direct cu 
-//Firebase Auth și Google Sign-In.Rol principal: Să trimită datele la server 
-//și să returneze rezultatul (sau o eroare tehnică).
-
-
-
-
-
-//ValueNotifier<AuthService> authService= ValueNotifier(AuthService());
+import 'package:cloud_firestore/cloud_firestore.dart'; 
 
 class AuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestore _db = FirebaseFirestore.instance; // Instanța Firestore
 
   // Get current user
-
- UserModel? get currentUser {
+  UserModel? get currentUser {
     final user = _firebaseAuth.currentUser;
     return user != null ? UserModel.fromFirebase(user) : null;
   }
 
-Stream<UserModel?> get onAuthStateChanged {
+  Stream<UserModel?> get onAuthStateChanged {
     return _firebaseAuth.authStateChanges().map((firebaseUser) {
       return firebaseUser != null ? UserModel.fromFirebase(firebaseUser) : null;
     });
   }
-  // Sign up with email and password
-Future<UserModel?> createAccount(String email, String password, String name) async {
+
+  // --- MODIFICARE: CREARE CONT + SALVARE FIRESTORE ---
+  Future<UserModel?> createAccount(String email, String password, String name) async {
     try {
       final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
       
-      // Integrarea numelui conform planului [cite: 17]
-      await userCredential.user?.updateDisplayName(name);
-      await userCredential.user?.reload();
-      
-      final updatedUser = _firebaseAuth.currentUser;
-      return updatedUser != null ? UserModel.fromFirebase(updatedUser) : null;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  // Sign in with email and password
-Future<UserModel?> signInWithEmail(String email, String password) async {
-    try {
-      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final firebaseUser = userCredential.user;
 
-      // Conversia din Firebase User în modelul nostru personalizat UserModel
-      if (userCredential.user != null) {
-        return UserModel.fromFirebase(userCredential.user!);
+      if (firebaseUser != null) {
+        // 1. Integrarea numelui în Firebase Auth 
+        await firebaseUser.updateDisplayName(name);
+        await firebaseUser.reload();
+        
+        final updatedFirebaseUser = _firebaseAuth.currentUser;
+
+        // 2. Crearea modelului nostru de date
+        UserModel newUser = UserModel(
+          id: updatedFirebaseUser!.uid,
+          email: updatedFirebaseUser.email ?? email,
+          displayName: name,
+          photoUrl: updatedFirebaseUser.photoURL ?? '',
+        );
+
+        // 3. SALVARE ÎN FIRESTORE (Colecția 'users') 
+        await _db.collection('users').doc(newUser.id).set(newUser.toMap());
+
+        return newUser;
       }
-      
       return null;
-    } on FirebaseAuthException {
-      // Re-aruncăm eroarea pentru a fi prinsă de blocul catch din UI (cel cu showDialog)
-      rethrow;
     } catch (e) {
-      // Prindem orice altă eroare neprevăzută
-      throw Exception('A apărut o eroare neașteptată la autentificare.');
+      rethrow;
     }
   }
 
-  // Sign in cu Google
-
+  // --- MODIFICARE: LOGIN GOOGLE + SALVARE/ACTUALIZARE FIRESTORE ---
   Future<UserModel?> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-    
-      final UserCredential userCredential = 
-          await _firebaseAuth.signInWithCredential(credential);
+      final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+      final firebaseUser = userCredential.user;
 
-      // Convertim User-ul Firebase în modelul nostru personalizat UserModel
-      if (userCredential.user != null) {
-        return UserModel.fromFirebase(userCredential.user!);
+      if (firebaseUser != null) {
+        UserModel userModel = UserModel.fromFirebase(firebaseUser);
+
+        // Actualizăm/Salvăm profilul în Firestore la fiecare logare cu Google 
+        // pentru a ne asigura că avem datele proaspete (nume, poză)
+        await _db.collection('users').doc(userModel.id).set(userModel.toMap(), SetOptions(merge: true));
+
+        return userModel;
       }
-      
       return null;
-    } on FirebaseAuthException {
-      rethrow;
     } catch (e) {
-     
       throw Exception('Autentificarea cu Google a eșuat.');
     }
   }
 
-  // Sign out
-Future<void> signOut() async {
+  // Restul metodelor rămân neschimbate...
+  Future<UserModel?> signInWithEmail(String email, String password) async {
     try {
-      // Deconectare de la Firebase Auth
-      await _firebaseAuth.signOut();
-      
-      // Deconectare de la Google (important pentru a permite 
-      // utilizatorului să aleagă alt cont la următoarea logare)
-      await _googleSignIn.signOut();
+      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user != null ? UserModel.fromFirebase(userCredential.user!) : null;
     } catch (e) {
-      // Aruncăm o eroare personalizată pentru a fi prinsă de UI dacă este necesar
-      throw Exception('Eroare la deconectare: ${e.toString()}');
+      rethrow;
     }
   }
 
-// resetare parola
-Future <void>resetPassword({
-  required String email,
+  Future<void> signOut() async {
+    await _firebaseAuth.signOut();
+    await _googleSignIn.signOut();
+  }
 
-})async {
-  await _firebaseAuth.sendPasswordResetEmail(email: email);
-}
-
+  Future<void> resetPassword({required String email}) async {
+    await _firebaseAuth.sendPasswordResetEmail(email: email);
+  }
 // stergere cont 
 Future<void> deleteAccount({
     required String email,
