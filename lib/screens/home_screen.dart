@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/services/auth_service.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -9,47 +12,88 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = context.read<AuthService>();
     final user = authService.currentUser;
+    final FirebaseFirestore _db = FirebaseFirestore.instance;
+    final postRepo = context.read<PostRepository>();
+   
 
-    return DefaultTabController(
-      length: 4, // Feed, Map, Swipe, Profile
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Vasco'),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none),
-              onPressed: () {}, // Viitoarea logică de notificări
-            ),
-          ],
-          bottom: const TabBar(
-            isScrollable: false,
-            tabs: [
-              Tab(icon: Icon(Icons.home), text: "Feed"),
-              Tab(icon: Icon(Icons.map), text: "Map"),
-              Tab(icon: Icon(Icons.local_fire_department), text: "Swipe"),
-              Tab(icon: Icon(Icons.person), text: "Profil"),
-            ],
+return DefaultTabController(
+    length: 4,
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('Vasco'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () {},
           ),
+        ],
+        bottom: const TabBar(
+          isScrollable: false,
+          tabs: [
+            Tab(icon: Icon(Icons.home), text: "Feed"),
+            Tab(icon: Icon(Icons.map), text: "Map"),
+            Tab(icon: Icon(Icons.local_fire_department), text: "Swipe"),
+            Tab(icon: Icon(Icons.person), text: "Profil"),
+          ],
         ),
-        body: TabBarView(
+      ),
+      body: TabBarView(
+        children: [
+          _buildFeedPlaceholder(),
+          _buildPlaceholder("Harta (Google Maps)"),
+          _buildPlaceholder("Tinder Swipe Area"),
+          _buildProfilePage(context, user, authService),
+        ],
+      ),
+      
+      // <<< ADAUGĂ BUTONUL EXACT AICI >>>
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Aici vei apela funcția de upload definită în repository-ul tău
+          // Exemplu: 
+          // if (user != null) postRepo.uploadPost(user.uid, "Descriere...");
+if (user == null) return;
+
+    // Afișăm un meniu (Bottom Sheet) pentru a alege sursa pozei
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. Pagina cu Feed-ul principal
-            _buildFeedPlaceholder(),
-            
-            // 2. Pagina cu Harta (Google Maps) 
-            _buildPlaceholder("Harta (Google Maps)"),
-            
-            // 3. Pagina Tinder Swipe 
-            _buildPlaceholder("Tinder Swipe Area"),
-            
-            // 4. Pagina Contul Meu
-            _buildProfilePage(context, user, authService),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Fă o poză cu camera'),
+              onTap: () {
+                Navigator.pop(context); // Închidem meniul
+                postRepo.uploadPost(user.id, "New Post", ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from galery'),
+              onTap: () {
+                Navigator.pop(context); // Închidem meniul
+                postRepo.uploadPost(user.id, "New Post", ImageSource.gallery);
+              },
+            ),
           ],
         ),
       ),
     );
-  }
+
+
+
+          print("Butonul de postare a fost apăsat!");
+        },
+        backgroundColor: Colors.deepPurple,
+        child: const Icon(Icons.add_a_photo, color: Colors.white),
+      ),
+    ),
+  );
+}
+  
 
   // Structura de bază pentru Feed
   Widget _buildFeedPlaceholder() {

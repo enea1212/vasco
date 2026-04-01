@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'package:vasco/providers/auth_provider.dart';
+import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/screens/home_screen.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart'; 
@@ -19,6 +20,7 @@ Future<void> main() async {
   MultiProvider(
   providers: [
     Provider<AuthService>(create: (_) => AuthService()),
+    Provider<PostRepository>(create: (_) => PostRepository()),
     ChangeNotifierProxyProvider<AuthService, AuthViewModel>(
       create: (context) => AuthViewModel(context.read<AuthService>()),
       update: (context, authService, previous) => AuthViewModel(authService),
