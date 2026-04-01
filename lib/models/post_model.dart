@@ -21,6 +21,7 @@ class PostModel {
       'imageUrl': imageUrl,
       'description': description,
       'createdAt': createdAt,
+      
     };
   }
 }

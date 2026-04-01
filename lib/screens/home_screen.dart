@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:vasco/screens/profile_page.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -43,7 +44,7 @@ return DefaultTabController(
           _buildFeedPlaceholder(),
           _buildPlaceholder("Harta (Google Maps)"),
           _buildPlaceholder("Tinder Swipe Area"),
-          _buildProfilePage(context, user, authService),
+          ProfileScreen(),
         ],
       ),
       
@@ -124,27 +125,102 @@ if (user == null) return;
       },
     );
   }
-//PARTE DE PROFIL
-  Widget _buildProfilePage(BuildContext context, user, authService) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
-          const SizedBox(height: 16),
-          Text(user?.displayName ?? "Utilizator", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(user?.email ?? ""),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => authService.signOut(),
-            icon: const Icon(Icons.logout),
-            label: const Text("Deconectare"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red[50]),
-          ),
-        ],
-      ),
-    );
-  }
+
+
+// Widget _buildProfilePage(BuildContext context, user, authService) {
+//   return Column(
+//     children: [
+//       const SizedBox(height: 20),
+//       const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
+//       const SizedBox(height: 16),
+//       Text(user?.displayName ?? "Utilizator", 
+//            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+//       Text(user?.email ?? ""),
+//       const SizedBox(height: 16),
+//       ElevatedButton.icon(
+//         onPressed: () => authService.signOut(),
+//         icon: const Icon(Icons.logout),
+//         label: const Text("Deconectare"),
+//         style: ElevatedButton.styleFrom(backgroundColor: Colors.red[50]),
+//       ),
+//       const Divider(height: 32),
+//       const Text("Postările mele", style: TextStyle(fontWeight: FontWeight.bold)),
+//       const SizedBox(height: 8),
+      
+//       Expanded(
+//         child: StreamBuilder<QuerySnapshot>(
+//           stream: FirebaseFirestore.instance
+//               .collection('posts')
+//               .where('userId', isEqualTo: user?.id) // Folosește id din UserModel
+//               .orderBy('createdAt', descending: true)
+//               .snapshots(),
+//           builder: (context, snapshot) {
+//             if (snapshot.hasError) return const Center(child: Text("Eroare la încărcarea postărilor"));
+//             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+
+//             final docs = snapshot.data?.docs ?? [];
+//             if (docs.isEmpty) return const Center(child: Text("Nu ai nicio postare încă."));
+
+//             return GridView.builder(
+//               padding: const EdgeInsets.all(8),
+//               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+//                 crossAxisCount: 3,
+//                 crossAxisSpacing: 5,
+//                 mainAxisSpacing: 5,
+//               ),
+//               itemCount: docs.length,
+//               itemBuilder: (context, index) {
+//                 final data = docs[index].data() as Map<String, dynamic>;
+//                 final imageUrl = data['imageUrl'] ?? "";
+//                 final description = data['description'] ?? "Nicio descriere";
+
+//                 return GestureDetector(
+//                   onTap: () {
+//                     // AFIȘARE POZĂ MARE + DESCRIERE
+//                     showDialog(
+//                       context: context,
+//                       builder: (context) => Dialog(
+//                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+//                         child: Column(
+//                           mainAxisSize: MainAxisSize.min, // Dialogul se adaptează după conținut
+//                           children: [
+//                             ClipRRect(
+//                               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+//                               child: Image.network(imageUrl, fit: BoxFit.contain),
+//                             ),
+//                             Padding(
+//                               padding: const EdgeInsets.all(16.0),
+//                               child: Text(
+//                                 description,
+//                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+//                                 textAlign: TextAlign.center,
+//                               ),
+//                             ),
+//                             TextButton(
+//                               onPressed: () => Navigator.pop(context),
+//                               child: const Text("Închide"),
+//                             ),
+//                           ],
+//                         ),
+//                       ),
+//                     );
+//                   },
+//                   child: ClipRRect(
+//                     borderRadius: BorderRadius.circular(8),
+//                     child: Image.network(
+//                       imageUrl,
+//                       fit: BoxFit.cover,
+//                     ),
+//                   ),
+//                 );
+//               },
+//             );
+//           },
+//         ),
+//       ),
+//     ],
+//   );
+// }
 
   Widget _buildPlaceholder(String text) {
     return Center(child: Text(text, style: const TextStyle(fontSize: 18, color: Colors.grey)));

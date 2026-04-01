@@ -34,4 +34,34 @@ class PostRepository {
       rethrow;
     }
   }
+
+Future<void> deletePost(String postId, String imageUrl) async {
+    try {
+      // Șterge documentul din baza de date Firestore
+      await _db.collection('posts').doc(postId).delete();
+
+      // Șterge fișierul fizic din Firebase Storage folosind URL-ul
+      await _storage.refFromURL(imageUrl).delete();
+      
+      print("Postare ștearsă cu succes.");
+    } catch (e) {
+      print("Eroare la ștergere: $e");
+      rethrow;
+    }
+  }
+  Future<void> editPost(String postId, String newDescription) async {
+    try {
+      // Actualizează doar câmpul 'description' în Firestore
+      await _db.collection('posts').doc(postId).update({
+        'description': newDescription,
+      });
+      
+      print("Postare actualizată cu succes.");
+    } catch (e) {
+      print("Eroare la editare: $e");
+      rethrow;
+    }
+  }
+
+
 }
