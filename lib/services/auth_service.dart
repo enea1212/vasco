@@ -2,12 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:vasco/models/user_model.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
-  final FirebaseFirestore _db = FirebaseFirestore.instance; // Instanța Firestore
+  final FirebaseFirestore _db =
+      FirebaseFirestore.instance; // Instanța Firestore
 
   // Get current user
   UserModel? get currentUser {
@@ -22,20 +23,24 @@ class AuthService {
   }
 
   // --- MODIFICARE: CREARE CONT + SALVARE FIRESTORE ---
-  Future<UserModel?> createAccount(String email, String password, String name) async {
+  Future<UserModel?> createAccount(
+    String email,
+    String password,
+    String name,
+  ) async {
     try {
       final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       final firebaseUser = userCredential.user;
 
       if (firebaseUser != null) {
-        // 1. Integrarea numelui în Firebase Auth 
+        // 1. Integrarea numelui în Firebase Auth
         await firebaseUser.updateDisplayName(name);
         await firebaseUser.reload();
-        
+
         final updatedFirebaseUser = _firebaseAuth.currentUser;
 
         // 2. Crearea modelului nostru de date
@@ -46,7 +51,7 @@ class AuthService {
           photoUrl: updatedFirebaseUser.photoURL ?? '',
         );
 
-        // 3. SALVARE ÎN FIRESTORE (Colecția 'users') 
+        // 3. SALVARE ÎN FIRESTORE (Colecția 'users')
         await _db.collection('users').doc(newUser.id).set(newUser.toMap());
 
         return newUser;
@@ -63,21 +68,51 @@ class AuthService {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return null;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+      final UserCredential userCredential = await _firebaseAuth
+          .signInWithCredential(credential);
       final firebaseUser = userCredential.user;
 
       if (firebaseUser != null) {
         UserModel userModel = UserModel.fromFirebase(firebaseUser);
 
-        // Actualizăm/Salvăm profilul în Firestore la fiecare logare cu Google 
-        // pentru a ne asigura că avem datele proaspete (nume, poză)
-        await _db.collection('users').doc(userModel.id).set(userModel.toMap(), SetOptions(merge: true));
+        // Păstrează valorile existente din Firestore (ex. displayName/bio actualizate de utilizator)
+        final userDoc = await _db.collection('users').doc(userModel.id).get();
+        final existingData = userDoc.exists
+            ? userDoc.data() ?? <String, dynamic>{}
+            : <String, dynamic>{};
+
+        final mergedData = <String, dynamic>{
+          ...existingData,
+          'id': userModel.id,
+          'email': userModel.email,
+          if ((existingData['displayName'] == null ||
+                  existingData['displayName'].toString().isEmpty) &&
+              (userModel.displayName != null &&
+                  userModel.displayName!.isNotEmpty))
+            'displayName': userModel.displayName,
+          if ((existingData['photoUrl'] == null ||
+                  existingData['photoUrl'].toString().isEmpty) &&
+              (userModel.photoUrl != null && userModel.photoUrl!.isNotEmpty))
+            'photoUrl': userModel.photoUrl,
+          if ((existingData['bio'] == null ||
+                  existingData['bio'].toString().isEmpty) &&
+              (userModel.biography != null && userModel.biography!.isNotEmpty))
+            'bio': userModel.biography,
+        };
+
+        mergedData.removeWhere((key, value) => value == null);
+
+        await _db
+            .collection('users')
+            .doc(userModel.id)
+            .set(mergedData, SetOptions(merge: true));
 
         return userModel;
       }
@@ -94,7 +129,9 @@ class AuthService {
         email: email,
         password: password,
       );
-      return userCredential.user != null ? UserModel.fromFirebase(userCredential.user!) : null;
+      return userCredential.user != null
+          ? UserModel.fromFirebase(userCredential.user!)
+          : null;
     } catch (e) {
       rethrow;
     }
@@ -108,17 +145,20 @@ class AuthService {
   Future<void> resetPassword({required String email}) async {
     await _firebaseAuth.sendPasswordResetEmail(email: email);
   }
-// stergere cont 
-Future<void> deleteAccount({
+
+  // stergere cont
+  Future<void> deleteAccount({
     required String email,
     required String password,
   }) async {
     try {
       // Avem nevoie de user-ul curent de la Firebase pentru operațiuni administrative
       final user = _firebaseAuth.currentUser;
-      
+
       if (user == null) {
-        throw Exception('Nu există un utilizator logat pentru a efectua ștergerea.');
+        throw Exception(
+          'Nu există un utilizator logat pentru a efectua ștergerea.',
+        );
       }
 
       // Creăm acreditările pentru re-autentificare
@@ -127,25 +167,18 @@ Future<void> deleteAccount({
         password: password,
       );
 
-      
       await user.reauthenticateWithCredential(credential);
 
-      
       await user.delete();
 
-      
       await signOut();
-      
     } on FirebaseAuthException catch (e) {
       // Tratăm erori specifice (ex: parolă greșită la re-autentificare)
       throw Exception('A apărut o eroare la ștergerea contului.');
-    } 
-    
+    }
   }
 
-
-
-Stream<UserModel?> authStateChanges() {
+  Stream<UserModel?> authStateChanges() {
     return _firebaseAuth.authStateChanges().map((firebaseUser) {
       // Dacă firebaseUser nu este null, îl convertim în UserModel folosind factory-ul creat
       return firebaseUser != null ? UserModel.fromFirebase(firebaseUser) : null;

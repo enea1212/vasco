@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:vasco/providers/user_provider.dart';
 import '../services/auth_service.dart';
 import '../repository/user_repository.dart';
 
@@ -25,13 +26,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadCurrentData();
   }
 
-  void _loadCurrentData() {
-    final user = context.read<AuthService>().currentUser;
-    if (user != null) {
-      _nameController.text = user.displayName ?? "";
-      _bioController.text = user.biography ?? "";
-    }
+void _loadCurrentData() {
+  // Folosim UserProvider în loc de AuthService pentru că UserProvider conține datele din Firestore (inclusiv bio)
+  final user = context.read<UserProvider>().user; 
+  if (user != null) {
+    _nameController.text = user.displayName ?? "";
+    _bioController.text = user.biography ?? ""; // Acum va prelua valoarea corectă
   }
+}
 
   Future<void> _pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -39,35 +41,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _imageFile = File(pickedFile.path));
     }
   }
+Future<void> _updateProfile() async {
+  setState(() => _isLoading = true);
+  try {
+    // Citim user-ul tot din UserProvider pentru a avea acces la ID și photoUrl-ul actual
+    final user = context.read<UserProvider>().user;
+    final userRepo = context.read<UserRepository>();
+    String? imageUrl = user?.photoUrl;
 
-  Future<void> _updateProfile() async {
-    setState(() => _isLoading = true);
-    try {
-      final user = context.read<AuthService>().currentUser;
-      final userRepo = context.read<UserRepository>();
-      String? imageUrl = user?.photoUrl;
-
-      // 1. Upload imagine dacă a fost selectată
-      if (_imageFile != null) {
-        final ref = FirebaseStorage.instance.ref().child('avatars/${user!.id}.jpg');
-        await ref.putFile(_imageFile!);
-        imageUrl = await ref.getDownloadURL();
-      }
-
-      // 2. Salvare în Firestore
-      await userRepo.updateUserProfile(user!.id, {
-        'displayName': _nameController.text,
-        'bio': _bioController.text,
-        'photoUrl': imageUrl,
-      });
-
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      setState(() => _isLoading = false);
+    if (_imageFile != null) {
+      final ref = FirebaseStorage.instance.ref().child('avatars/${user!.id}.jpg');
+      await ref.putFile(_imageFile!);
+      imageUrl = await ref.getDownloadURL();
     }
+
+    await userRepo.updateUserProfile(user!.id, {
+      'displayName': _nameController.text,
+      'bio': _bioController.text, // Se va salva valoarea din controller
+      'photoUrl': imageUrl,
+    });
+
+    if (mounted) Navigator.pop(context);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

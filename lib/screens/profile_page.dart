@@ -101,24 +101,29 @@ ElevatedButton.icon(
   ),
 ),
         // 3. Buton Deconectare
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => authService.signOut(),
-              icon: const Icon(Icons.logout, size: 18),
-              label: const Text("Deconectare"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[50],
-                foregroundColor: Colors.red,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ),
-        ),
-
+  Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+  child: SizedBox(
+    width: double.infinity,
+    child: ElevatedButton.icon(
+      onPressed: () {
+       
+        
+        
+        // APOI: Facem sign out din Firebase
+        authService.signOut();
+      },
+      icon: const Icon(Icons.logout, size: 18),
+      label: const Text("Deconectare"),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red[50],
+        foregroundColor: Colors.red,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    ),
+  ),
+),
         const Divider(height: 32),
         const Center(child: Text("Postările mele", style: TextStyle(fontWeight: FontWeight.bold))),
         const SizedBox(height: 8),

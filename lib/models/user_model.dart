@@ -10,7 +10,7 @@ class UserModel {
     required this.email,
     this.displayName,
     this.photoUrl,
-     this.biography,
+    this.biography,
   });
 
   // Transformă obiectul User de la Firebase în modelul nostru local
@@ -25,12 +25,17 @@ class UserModel {
 
   // Util pentru salvarea în Firestore mai târziu
   Map<String, dynamic> toMap() {
-    return {
+    final data = {
       'id': id,
       'email': email,
       'displayName': displayName,
       'photoUrl': photoUrl,
-      'biography':biography
     };
+
+    if (biography != null) {
+      data['bio'] = biography;
+    }
+
+    return data;
   }
 }
