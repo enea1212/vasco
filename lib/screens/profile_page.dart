@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:vasco/repository/edit_profile.dart';
+
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -18,64 +21,85 @@ class ProfileScreen extends StatelessWidget {
       ],
     );
   }
+@override
+Widget build(BuildContext context) {
+  final authService = context.read<AuthService>();
+  final postRepo = context.read<PostRepository>();
+  
+  // Folosim watch pentru a reconstrui widget-ul la orice schimbare în UserProvider
+  final userProvider = context.watch<UserProvider>();
+  final user = userProvider.user;
 
-  @override
-  Widget build(BuildContext context) {
-    final authService = context.read<AuthService>();
-    final postRepo = context.read<PostRepository>();
-    final user = authService.currentUser;
+  if (user == null) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-    if (user == null) {
-      return const Center(child: Text("Utilizator neautentificat"));
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        
-        // 1. Header: Poza de profil + Statistici
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: [
-              const CircleAvatar(
-                radius: 40, 
-                child: Icon(Icons.person, size: 40)
-              ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatColumn("Postări", "0"), 
-                    _buildStatColumn("Followers", "0"),
-                    _buildStatColumn("Following", "0"),
-                  ],
-                ),
-              ),
-            ],
-          ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 20),
+      
+      // Header: Poza de profil actualizată
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundImage: (user.photoUrl != null && user.photoUrl!.isNotEmpty)
+                  ? NetworkImage(user.photoUrl!)
+                  : null,
+              child: (user.photoUrl == null || user.photoUrl!.isEmpty)
+                  ? const Icon(Icons.person, size: 40)
+                  : null,
+            ),
+            // ... Statistici (Postări, Followers etc.)
+          ],
         ),
+      ),
 
-        // 2. USERNAME și EMAIL (Exact aici trebuiau adăugate)
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user.displayName ?? "Utilizator", 
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
-              ),
-              const SizedBox(height: 2),
-              Text(
-                user.email ?? "", 
-                style: const TextStyle(color: Colors.grey, fontSize: 14)
-              ),
-            ],
-          ),
+      // USERNAME, EMAIL și BIO
+      Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              user.displayName ?? "Utilizator", 
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+            ),
+            const SizedBox(height: 4),
+            // Afișarea Bio-ului
+            Text(
+              user.biography?? "Fără descriere", 
+              style: const TextStyle(fontSize: 14, color: Colors.black87)
+            ),
+            const SizedBox(height: 2),
+            Text(
+              user.email, 
+              style: const TextStyle(color: Colors.grey, fontSize: 14)
+            ),
+          ],
         ),
-
+      ),
+      
+  
+ElevatedButton.icon(
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+    );
+  },
+  icon: const Icon(Icons.edit, size: 18),
+  label: const Text("Editează Profil"),
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.blue[50],
+    foregroundColor: Colors.blue,
+    elevation: 0,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  ),
+),
         // 3. Buton Deconectare
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),

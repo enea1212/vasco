@@ -13,4 +13,18 @@ class UserRepository {
       print("Eroare la salvarea în Firestore: $e");
     }
   }
+  Future<void> updateUserProfile(String userId, Map<String, dynamic> data) async {
+  await _db.collection('users').doc(userId).update(data);
+}
+Future<UserModel> getUserData(String userId) async {
+    var doc = await _db.collection('users').doc(userId).get();
+    return UserModel(
+      id: doc['id'],
+      email: doc['email'],
+      displayName: doc['displayName'],
+      photoUrl: doc['photoUrl'],
+      biography: doc['bio'],
+    );
+  }
+
 }

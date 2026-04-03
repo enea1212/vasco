@@ -3,7 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'package:vasco/providers/auth_provider.dart';
+import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
+import 'package:vasco/repository/user_repository.dart';
 import 'package:vasco/screens/home_screen.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart'; 
@@ -21,10 +23,12 @@ Future<void> main() async {
   providers: [
     Provider<AuthService>(create: (_) => AuthService()),
     Provider<PostRepository>(create: (_) => PostRepository()),
+     Provider<UserRepository>(create: (_) => UserRepository()),
     ChangeNotifierProxyProvider<AuthService, AuthViewModel>(
       create: (context) => AuthViewModel(context.read<AuthService>()),
       update: (context, authService, previous) => AuthViewModel(authService),
     ),
+    ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
   ],
   child: const MyApp(),
 ));
@@ -52,10 +56,19 @@ class MyApp extends StatelessWidget {
           }
 
           if (snapshot.hasData && snapshot.data != null) {
-            return HomeScreen();
+            final String uid = snapshot.data!.uid;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+       
+              context.read<UserProvider>().listenToUser(uid);
+            });
+            return const HomeScreen();
           }
+WidgetsBinding.instance.addPostFrameCallback((_) {
+          
+          });
 
           return const LoginScreen();
+       
         },
       ),
     );

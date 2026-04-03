@@ -3,12 +3,14 @@ class UserModel {
   final String email;
   final String? displayName;
   final String? photoUrl;
+  final String? biography;
 
   UserModel({
     required this.id,
     required this.email,
     this.displayName,
     this.photoUrl,
+     this.biography,
   });
 
   // Transformă obiectul User de la Firebase în modelul nostru local
@@ -28,6 +30,7 @@ class UserModel {
       'email': email,
       'displayName': displayName,
       'photoUrl': photoUrl,
+      'biography':biography
     };
   }
 }
