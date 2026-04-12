@@ -62,3 +62,7 @@ lib/firebase_options.dart
 **/generated_plugin_registrant.h
 **/generated_plugins.cmake
 **/GeneratedPluginRegistrant.swift
+
+# Mapbox keys (do not commit)
+android/local.properties
+android/app/src/main/res/values/mapbox_access_token.xml

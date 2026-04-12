@@ -42,6 +42,8 @@ dependencies:
   cloud_firestore: ^5.6.1
   firebase_storage: ^12.3.2  
   image_picker: ^1.1.2
+  mapbox_maps_flutter: ^2.21.1
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:

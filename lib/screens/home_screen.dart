@@ -5,6 +5,7 @@ import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/screens/profile_page.dart';
 import '../widget/custom_bottom_nav_bar.dart';
+import 'package:vasco/screens/map_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,11 +24,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      _buildFeedPlaceholder(),
-      _buildPlaceholder("Harta (Google Maps)"),
-      Container(), // Spațiu pentru butonul de cameră (care deschide meniu)
-      _buildPlaceholder("Tinder Swipe Area"),
-      const ProfileScreen(),
+      _buildFeedPlaceholder(), // 0 - Home
+      _buildPlaceholder("Friends"), // 1 - Friends
+      Container(), // 2 - Camera
+      MapPage(), // 3 - Map
+      const ProfileScreen(), // 4 - Profile
     ];
   }
 
