@@ -1,10 +1,18 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import '../helpers/mapbox_helper.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart' as geo;
+import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../providers/user_provider.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({Key? key}) : super(key: key);
@@ -13,36 +21,121 @@ class MapPage extends StatefulWidget {
   State<MapPage> createState() => _MapPageState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapPageState extends State<MapPage> with TickerProviderStateMixin {
+  late TabController _tabController;
+
   bool _isLoading = true;
+
+  // Tab 1 — Friends map
   MapboxMap? _mapboxMap;
-  geo.Position? _currentPosition;
   PointAnnotationManager? _pointAnnotationManager;
-  bool _mapReady = false;
+  PointAnnotation? _userAnnotation;
+
+  // Tab 2 — Heat map
   MapboxMap? _mapboxMapTab2;
+
+  // GeoJSON
   String? _geoJsonString;
   bool _geoJsonLoaded = false;
-
-  // FIX 1: Store decoded GeoJSON as Map to avoid double-decode
   Map<String, dynamic>? _geoJsonData;
+
+  // Locație & imagine
+  geo.Position? _currentPosition;
+  StreamSubscription<geo.Position>? _positionStream;
+  Uint8List? _cachedProfileImage;
+
+  // Țări share-uite
+  List<Map<String, String>> _sharedCountries = [];
+
+  // Completer pentru a ști când harta Tab 1 e gata
+  final Completer<void> _mapReadyCompleter = Completer<void>();
+
+  bool _tab1CenteredOnce = false;
 
   @override
   void initState() {
     super.initState();
-    _loadGeoJson();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _positionStream?.cancel();
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() async {
+    if (!mounted) return;
+    setState(() {}); // rebuild ca IndexedStack să schimbe indexul
+    if (_tabController.index == 0 && !_tabController.indexIsChanging) {
+      await _centerOnCurrentLocation();
+      // Dacă există poziție și imagine, dar nu există annotation, recreează-l
+      if (_currentPosition != null && _cachedProfileImage != null && _userAnnotation == null && _mapboxMap != null && _pointAnnotationManager != null) {
+        await _updateUserAnnotation(_currentPosition!);
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Bootstrap
+  // ─────────────────────────────────────────────
+
+  Future<void> _bootstrap() async {
+    await Future.wait([
+      _loadGeoJson(),
+      _initLocationAndImage(),
+    ]);
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (_currentPosition == null || _cachedProfileImage == null) {
+      debugPrint('[DEBUG] bootstrap: locație sau imagine lipsă');
+      return;
+    }
+
+    await _mapReadyCompleter.future;
+    if (!mounted) return;
+
+    await _tryCenterAndMarker();
+    if (!mounted) return;
+    await _updateUserAnnotation(_currentPosition!);
+    if (!mounted) return;
+
+    _startPositionStream();
+    _tab1CenteredOnce = true;
+  }
+
+  Future<void> _initLocationAndImage() async {
+    final pos = await _getLocationWithPermission();
+    if (pos == null) {
+      debugPrint('[DEBUG] _initLocationAndImage: pos este NULL');
+      return;
+    }
+    debugPrint('[DEBUG] _initLocationAndImage: pos=${pos.latitude}, ${pos.longitude}');
+    _currentPosition = pos;
+    _cachedProfileImage = await _buildProfileImage();
+    // Dacă harta este deja creată și annotation-ul lipsește, recreează-l
+    if (_mapboxMap != null && _pointAnnotationManager != null && _userAnnotation == null) {
+      await _updateUserAnnotation(_currentPosition!);
+    }
   }
 
   Future<void> _loadGeoJson() async {
     _geoJsonString = await rootBundle.loadString('assets/custom.geo.json');
-    // FIX 1: Decode once and store
     _geoJsonData = json.decode(_geoJsonString!) as Map<String, dynamic>;
-    setState(() {
-      _geoJsonLoaded = true;
-      _isLoading = false;
-    });
+    _geoJsonLoaded = true;
   }
 
-  // FIX 2: Request location permission explicitly before getting position
+  // ─────────────────────────────────────────────
+  // Locație
+  // ─────────────────────────────────────────────
+
   Future<geo.Position?> _getLocationWithPermission() async {
     bool serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -71,7 +164,8 @@ class _MapPageState extends State<MapPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Permisiunea de localizare este blocată permanent. Activează din Setări.'),
+            content: Text(
+                'Permisiunea de localizare este blocată permanent. Activează din Setări.'),
           ),
         );
       }
@@ -88,144 +182,35 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.map), text: 'Harta'),
-              Tab(icon: Icon(Icons.public), text: 'Glob'),
-            ],
-          ),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                children: [
-                  // Tab 1: Harta actuala cu functionalitati
-                  Stack(
-                    children: [
-                      MapWidget(
-                        styleUri: "mapbox://styles/eneawss/cmnuakps2000301r3evyohdi9",
-                        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                          Factory<OneSequenceGestureRecognizer>(
-                              () => EagerGestureRecognizer()),
-                        },
-                        onMapCreated: _onMapCreated,
-                      ),
-                      Positioned(
-                        left: 16,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              FloatingActionButton(
-                                heroTag: 'zoom_in',
-                                mini: true,
-                                onPressed: _zoomIn,
-                                child: const Icon(Icons.add),
-                              ),
-                              const SizedBox(height: 12),
-                              FloatingActionButton(
-                                heroTag: 'zoom_out',
-                                mini: true,
-                                onPressed: _zoomOut,
-                                child: const Icon(Icons.remove),
-                              ),
-                              const SizedBox(height: 24),
-                              FloatingActionButton(
-                                heroTag: 'my_location',
-                                mini: true,
-                                backgroundColor: Colors.blue,
-                                onPressed: _centerOnCurrentLocation,
-                                child: const Icon(Icons.my_location),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Tab 2: Glob 3D
-                  Stack(
-                    children: [
-                      MapWidget(
-                        styleUri: "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
-                        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                          Factory<OneSequenceGestureRecognizer>(
-                              () => EagerGestureRecognizer()),
-                        },
-                        onMapCreated: _onMapCreatedTab2,
-                      ),
-                      Positioned(
-                        right: 16,
-                        top: 16,
-                        child: FloatingActionButton.extended(
-                          heroTag: 'share_location_tab2',
-                          icon: const Icon(Icons.location_on),
-                          label: const Text('Share Location'),
-                          onPressed: _shareLocationAndColorCountry,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+  void _startPositionStream() {
+    _positionStream = geo.Geolocator.getPositionStream(
+      locationSettings: const geo.LocationSettings(
+        accuracy: geo.LocationAccuracy.high,
+        distanceFilter: 2,
       ),
-    );
-  }
-
-  void _onMapCreated(MapboxMap mapboxMap) {
-    _mapboxMap = mapboxMap;
-    setState(() {
-      _mapReady = true;
+    ).listen((geo.Position position) async {
+      if (!mounted) return;
+      setState(() => _currentPosition = position);
+      await _updateUserAnnotation(position);
     });
   }
+
+  // ─────────────────────────────────────────────
+  // Centrare & marker Tab 1
+  // ─────────────────────────────────────────────
 
   Future<void> _centerOnCurrentLocation() async {
-    debugPrint('[DEBUG] Pressed My Location button');
-    // FIX 2: Use the new permission-aware method
     final pos = await _getLocationWithPermission();
     if (pos == null) return;
-
-    debugPrint('[DEBUG] Position obtained: ${pos.latitude}, ${pos.longitude}');
-    setState(() {
-      _currentPosition = pos;
-    });
+    if (!mounted) return;
+    setState(() => _currentPosition = pos);
     await _tryCenterAndMarker();
-  }
-
-  Future<void> _zoomIn() async {
-    if (_mapboxMap != null) {
-      final cameraState = await _mapboxMap!.getCameraState();
-      await _mapboxMap!.flyTo(
-        CameraOptions(zoom: (cameraState.zoom ?? 0) + 1),
-        MapAnimationOptions(duration: 300),
-      );
-    }
-  }
-
-  Future<void> _zoomOut() async {
-    if (_mapboxMap != null) {
-      final cameraState = await _mapboxMap!.getCameraState();
-      await _mapboxMap!.flyTo(
-        CameraOptions(zoom: (cameraState.zoom ?? 0) - 1),
-        MapAnimationOptions(duration: 300),
-      );
-    }
+    if (!mounted) return;
+    await _updateUserAnnotation(pos);
   }
 
   Future<void> _tryCenterAndMarker() async {
-    if (_mapboxMap == null || _currentPosition == null) {
-      debugPrint('[DEBUG] mapboxMap or currentPosition is null');
-      return;
-    }
+    if (_mapboxMap == null || _currentPosition == null) return;
     await _mapboxMap!.flyTo(
       CameraOptions(
         center: Point(
@@ -240,115 +225,168 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  void _onMapCreatedTab2(MapboxMap mapboxMap) async {
-    _mapboxMapTab2 = mapboxMap;
-    if (!_geoJsonLoaded || _geoJsonData == null) return;
+  // ─────────────────────────────────────────────
+  // Annotation (poza utilizatorului)
+  // ─────────────────────────────────────────────
 
-    // FIX 1: Pass the raw string to GeoJsonSource (not the decoded object)
-    await mapboxMap.style.addSource(GeoJsonSource(
-      id: 'countries',
-      data: _geoJsonString,
-    ));
-    await mapboxMap.style.addLayer(FillLayer(
-      id: 'country-fill',
-      sourceId: 'countries',
-      fillColor: Colors.transparent.value,
-      fillOpacity: 0.6,
-    ));
+  Future<void> _updateUserAnnotation(geo.Position position) async {
+    if (_pointAnnotationManager == null) return;
+    if (_cachedProfileImage == null) return;
+
+    final point = Point(
+      coordinates: Position(position.longitude, position.latitude),
+    );
+
+    if (_userAnnotation == null) {
+      _userAnnotation = await _pointAnnotationManager!.create(
+        PointAnnotationOptions(
+          geometry: point,
+          image: _cachedProfileImage,
+          iconSize: 1.0,
+          iconAnchor: IconAnchor.CENTER,
+        ),
+      );
+      debugPrint(
+          '[DEBUG] Annotation creat la: ${position.latitude}, ${position.longitude}');
+    } else {
+      _userAnnotation!.geometry = point;
+      await _pointAnnotationManager!.update(_userAnnotation!);
+      debugPrint(
+          '[DEBUG] Annotation mutat la: ${position.latitude}, ${position.longitude}');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Imagine profil
+  // ─────────────────────────────────────────────
+
+  Future<Uint8List> _buildProfileImage() async {
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final photoUrl = user?.photoUrl;
+
+    const int size = 96;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()),
+    );
+    final paint = Paint()..isAntiAlias = true;
+
+    paint.color = Colors.white;
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, paint);
+
+    paint.color = Colors.blue.shade400;
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 3, paint);
+
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      try {
+        final response = await http.get(Uri.parse(photoUrl));
+        if (response.statusCode == 200) {
+          final codec = await ui.instantiateImageCodec(
+            response.bodyBytes,
+            targetWidth: size,
+            targetHeight: size,
+          );
+          final frame = await codec.getNextFrame();
+          final img = frame.image;
+
+          final clipPath = Path()
+            ..addOval(Rect.fromCircle(
+              center: const Offset(size / 2, size / 2),
+              radius: size / 2 - 4,
+            ));
+          canvas.save();
+          canvas.clipPath(clipPath);
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            const Rect.fromLTRB(4, 4, size - 4, size - 4),
+            paint,
+          );
+          canvas.restore();
+        } else {
+          _drawFallbackIcon(canvas, size);
+        }
+      } catch (e) {
+        debugPrint('[DEBUG] Could not load profile image: $e');
+        _drawFallbackIcon(canvas, size);
+      }
+    } else {
+      _drawFallbackIcon(canvas, size);
+    }
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size, size);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
+
+  void _drawFallbackIcon(Canvas canvas, int size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..isAntiAlias = true;
+    canvas.drawCircle(Offset(size / 2, size / 2 - 8), 16, paint);
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(size / 2, size / 2 + 20),
+        width: 40,
+        height: 30,
+      ),
+      3.14159,
+      3.14159,
+      true,
+      paint,
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Tab 2 — Share locație & colorare țări
+  // ─────────────────────────────────────────────
+
+  Future<void> _loadSharedCountriesAndColor() async {
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    if (user == null) return;
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(user.id).get();
+    final data = doc.data();
+    if (data != null && data['shared_countries'] != null) {
+      final List<dynamic> list = data['shared_countries'];
+      _sharedCountries =
+          list.map((e) => Map<String, String>.from(e)).toList();
+      await _colorAllSharedCountries();
+    }
+  }
+
+  Future<void> _colorAllSharedCountries() async {
+    await MapboxHelper.colorCountries(_mapboxMapTab2, _sharedCountries);
   }
 
   Future<void> _shareLocationAndColorCountry() async {
     if (!_geoJsonLoaded || _geoJsonData == null || _mapboxMapTab2 == null) return;
 
-    // FIX 2: Use permission-aware location getter
     final pos = await _getLocationWithPermission();
     if (pos == null) return;
+    if (!mounted) return;
 
     final double lat = pos.latitude;
     final double lng = pos.longitude;
-    debugPrint('[DEBUG] Share location: lat=$lat, lng=$lng');
+    final detected = MapboxHelper.detectCountry(lat, lng, _geoJsonData!);
 
-    // FIX 3: Try multiple known property keys for country identifier
-    String? foundCountryKey;
-    String? foundCountryValue;
-
-    for (final feature in _geoJsonData!['features']) {
-      final geometry = feature['geometry'];
-      if (geometry == null) continue;
-      final String type = geometry['type'] as String;
-
-      bool found = false;
-
-      if (type == 'Polygon') {
-        final List rings = geometry['coordinates'] as List;
-        if (_pointInPolygon(lng, lat, rings[0] as List)) {
-          found = true;
-        }
-      } else if (type == 'MultiPolygon') {
-        final List polygons = geometry['coordinates'] as List;
-        for (final polygon in polygons) {
-          final List rings = polygon as List;
-          if (_pointInPolygon(lng, lat, rings[0] as List)) {
-            found = true;
-            break;
-          }
-        }
+    if (detected != null) {
+      final user = Provider.of<UserProvider>(context, listen: false).user;
+      if (user != null) {
+        final docRef =
+            FirebaseFirestore.instance.collection('users').doc(user.id);
+        await docRef.set({
+          'shared_countries': FieldValue.arrayUnion([detected]),
+        }, SetOptions(merge: true));
+        _sharedCountries.add(detected);
       }
-
-      if (found) {
-        final props = feature['properties'] as Map<String, dynamic>?;
-        if (props != null) {
-          // FIX 3: Try multiple possible property keys in order of preference
-          for (final key in ['ISO3166-1-Alpha-3', 'ISO_A3', 'iso_a3', 'ADM0_A3', 'ISO3166-1-Alpha-2', 'ISO_A2', 'name', 'ADMIN']) {
-            final val = props[key];
-            if (val != null && val.toString().isNotEmpty && val.toString() != '-99') {
-              foundCountryKey = key;
-              foundCountryValue = val.toString();
-              debugPrint('[DEBUG] Matched property: $key = $foundCountryValue');
-              break;
-            }
-          }
-
-          // Debug: print all available properties to help diagnose
-          debugPrint('[DEBUG] All feature properties: ${props.keys.toList()}');
-        }
-        break;
-      }
-    }
-
-    debugPrint('[DEBUG] Found key=$foundCountryKey value=$foundCountryValue');
-
-    if (foundCountryKey != null && foundCountryValue != null) {
-      // FIX 4: Serialize filter as JSON string to ensure correct Mapbox parsing
-      final filterExpression = json.encode([
-        "==",
-        ["get", foundCountryKey],
-        foundCountryValue,
-      ]);
-
-      try {
-        await _mapboxMapTab2!.style.setStyleLayerProperty(
-          'country-fill',
-          'filter',
-          filterExpression,
+      await MapboxHelper.colorCountries(_mapboxMapTab2, _sharedCountries);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Țara detectată și salvată: ${detected['value']}')),
         );
-        await _mapboxMapTab2!.style.setStyleLayerProperty(
-          'country-fill',
-          'fill-color',
-          "#FFFFFF",
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Țara detectată: $foundCountryValue')),
-          );
-        }
-      } catch (e) {
-        debugPrint('[DEBUG] Error applying filter: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Eroare la aplicarea filtrului: $e')),
-          );
-        }
       }
     } else {
       if (mounted) {
@@ -359,23 +397,160 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  /// Ray casting algorithm.
-  bool _pointInPolygon(double lng, double lat, List ring) {
-    bool inside = false;
-    final int n = ring.length;
-    int j = n - 1;
-    for (int i = 0; i < n; i++) {
-      final double xi = (ring[i][0] as num).toDouble();
-      final double yi = (ring[i][1] as num).toDouble();
-      final double xj = (ring[j][0] as num).toDouble();
-      final double yj = (ring[j][1] as num).toDouble();
+  // ─────────────────────────────────────────────
+  // Callbacks hartă
+  // ─────────────────────────────────────────────
 
-      final bool intersect = ((yi > lat) != (yj > lat)) &&
-          (lng < (xj - xi) * (lat - yi) / (yj - yi + 1e-12) + xi);
+  void _onMapCreated(MapboxMap mapboxMap) async {
+    _mapboxMap = mapboxMap;
+    _userAnnotation = null;
 
-      if (intersect) inside = !inside;
-      j = i;
+    _pointAnnotationManager =
+        await mapboxMap.annotations.createPointAnnotationManager();
+    debugPrint('[DEBUG] _onMapCreated: manager pronto');
+
+    if (!_mapReadyCompleter.isCompleted) {
+      _mapReadyCompleter.complete();
     }
-    return inside;
+
+    if (_cachedProfileImage == null) {
+      _cachedProfileImage = await _buildProfileImage();
+    }
+
+    if (_currentPosition != null) {
+      if (!mounted) return;
+      await _tryCenterAndMarker();
+      if (!mounted) return;
+      await _updateUserAnnotation(_currentPosition!);
+    } else {
+      final pos = await _getLocationWithPermission();
+      if (pos != null && mounted) {
+        setState(() => _currentPosition = pos);
+        await _tryCenterAndMarker();
+        if (!mounted) return;
+        await _updateUserAnnotation(pos);
+      }
+    }
+
+    _tab1CenteredOnce = true;
+  }
+
+  void _onMapCreatedTab2(MapboxMap mapboxMap) async {
+    _mapboxMapTab2 = mapboxMap;
+    if (!_geoJsonLoaded || _geoJsonData == null) return;
+    await MapboxHelper.createCountryLayer(mapboxMap, _geoJsonString!);
+    await mapboxMap.flyTo(
+      CameraOptions(
+        center: Point(coordinates: Position(0, 20)),
+        zoom: 1.0,
+      ),
+      MapAnimationOptions(duration: 800),
+    );
+    await _loadSharedCountriesAndColor();
+  }
+
+  // ─────────────────────────────────────────────
+  // Zoom helpers
+  // ─────────────────────────────────────────────
+
+  Future<void> _zoomIn() async {
+    if (_mapboxMap == null) return;
+    final cameraState = await _mapboxMap!.getCameraState();
+    await _mapboxMap!.flyTo(
+      CameraOptions(zoom: (cameraState.zoom ?? 0) + 1),
+      MapAnimationOptions(duration: 300),
+    );
+  }
+
+  Future<void> _zoomOut() async {
+    if (_mapboxMap == null) return;
+    final cameraState = await _mapboxMap!.getCameraState();
+    await _mapboxMap!.flyTo(
+      CameraOptions(zoom: (cameraState.zoom ?? 0) - 1),
+      MapAnimationOptions(duration: 300),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // UI
+  // ─────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 2,
+        title: TabBar(
+          controller: _tabController,
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            color: Colors.blue.shade50,
+          ),
+          labelColor: Colors.blue.shade900,
+          unselectedLabelColor: Colors.grey.shade500,
+          tabs: const [
+            Tab(
+              icon: Text('👥', style: TextStyle(fontSize: 22)),
+              child: Text('Friends', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            Tab(
+              icon: Text('🌍', style: TextStyle(fontSize: 22)),
+              child: Text('Heat Map', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                IndexedStack(
+                  index: _tabController.index,
+                  children: [
+                    // Tab 1 — Friends
+                    Stack(
+                      children: [
+                        MapWidget(
+                          styleUri: "mapbox://styles/eneawss/cmnuakps2000301r3evyohdi9",
+                          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                            Factory<OneSequenceGestureRecognizer>(
+                              () => EagerGestureRecognizer(),
+                            ),
+                          },
+                          onMapCreated: _onMapCreated,
+                        ),
+                      ],
+                    ),
+                    // Tab 2 — Heat Map
+                    Stack(
+                      children: [
+                        MapWidget(
+                          styleUri: "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
+                          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                            Factory<OneSequenceGestureRecognizer>(
+                              () => EagerGestureRecognizer(),
+                            ),
+                          },
+                          onMapCreated: _onMapCreatedTab2,
+                        ),
+                        Positioned(
+                          right: 16,
+                          top: 16,
+                          child: FloatingActionButton.extended(
+                            heroTag: 'share_location_tab2',
+                            icon: const Icon(Icons.location_on),
+                            label: const Text('Share Location'),
+                            onPressed: _shareLocationAndColorCountry,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
   }
 }
