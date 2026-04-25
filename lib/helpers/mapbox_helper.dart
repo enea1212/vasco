@@ -1,99 +1,107 @@
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 class MapboxHelper {
-    /// Ascunde complet overlay-ul peste țări (fără să șteargă layerul)
-    static Future<void> removeCountryLayer(MapboxMap mapboxMap) async {
-      try {
-        await mapboxMap.style.setStyleLayerProperty('country-fill', 'fill-opacity', 0.0);
-        await mapboxMap.style.setStyleLayerProperty('country-fill', 'fill-color', 0x00000000);
-      } catch (_) {}
-    }
-  /// Creează sursa și layerul pentru harta cu țări
-  static Future<void> createCountryLayer(MapboxMap mapboxMap, String geoJsonString) async {
-    await mapboxMap.style.addSource(GeoJsonSource(
-      id: 'countries',
-      data: geoJsonString,
-    ));
-    await mapboxMap.style.addLayer(FillLayer(
-      id: 'country-fill',
-      sourceId: 'countries',
-      fillColor: 0x00000000,
-      fillOpacity: 1.0,
-    ));
+  static const String _sourceId = 'composite';
+  static const String _sourceLayer = 'country_boundaries';
+  static const String _blueLayerId = 'country-boundaries copy';
+
+  static final List<String> _visitedIsoCodes = [];
+
+  /// Nu mai e nevoie de promoteId, folosim filtre directe pe layer
+  static Future<void> initFeatureState(MapboxMap map) async {
+    // Aplicăm filtrul inițial (gol - nicio țară exclusă încă)
+    await _applyFilter(map);
   }
 
-  /// Colorează țările selectate
-  static Future<void> colorCountries(MapboxMap? map, List<Map<String, String>> countries) async {
+  /// Elimină țările vizitate din layer-ul albastru prin filter
+  static Future<void> colorCountries(
+      MapboxMap? map, List<Map<String, String>> countries) async {
     if (map == null) return;
-    if (countries.isEmpty) {
-      await removeCountryLayer(map);
-      return;
+
+    _visitedIsoCodes.clear();
+    for (final country in countries) {
+      final String? isoValue = country['value'];
+      if (isoValue != null && isoValue.isNotEmpty) {
+        _visitedIsoCodes.add(isoValue);
+      }
     }
-    final filters = countries.map((c) => ["==", ["get", c['key']], c['value']]).toList();
-    final filterExpression = filters.length == 1
-        ? json.encode(filters[0])
-        : json.encode(["any", ...filters]);
-    await map.style.setStyleLayerProperty(
-      'country-fill',
-      'filter',
-      filterExpression,
-    );
-    await map.style.setStyleLayerProperty(
-      'country-fill',
-      'fill-color',
-      "#FFFFFF",
-    );
+
+    await _applyFilter(map);
   }
 
-  /// Găsește țara pentru o poziție
-  static Map<String, String>? detectCountry(double lat, double lng, Map<String, dynamic> geoJsonData) {
+  static Future<void> _applyFilter(MapboxMap map) async {
+    try {
+      if (_visitedIsoCodes.isEmpty) {
+        // Nicio țară vizitată — afișează totul normal
+        await map.style.setStyleLayerProperty(
+          _blueLayerId,
+          'filter',
+          json.encode(['all']),
+        );
+      } else {
+        // Exclude toate țările vizitate din layer-ul albastru
+        final List<dynamic> filterExpression = [
+          'all',
+          ...(_visitedIsoCodes.map((iso) => [
+                '!=',
+                ['get', 'iso_3166_1'],
+                iso,
+              ]))
+        ];
+
+        await map.style.setStyleLayerProperty(
+          _blueLayerId,
+          'filter',
+          json.encode(filterExpression),
+        );
+        debugPrint('[DEBUG] Filtru aplicat pentru: $_visitedIsoCodes');
+      }
+    } catch (e) {
+      debugPrint('[DEBUG] Eroare la aplicarea filtrului: $e');
+    }
+  }
+
+  /// Detecția țării bazată pe coordonate și GeoJSON-ul local
+  static Map<String, String>? detectCountry(
+      double lat, double lng, Map<String, dynamic> geoJsonData) {
     for (final feature in geoJsonData['features']) {
       final geometry = feature['geometry'];
       if (geometry == null) continue;
       final String type = geometry['type'] as String;
       bool found = false;
+
       if (type == 'Polygon') {
         final List rings = geometry['coordinates'] as List;
-        if (_pointInPolygon(lng, lat, rings[0] as List)) {
-          found = true;
-        }
+        if (_pointInPolygon(lng, lat, rings[0] as List)) found = true;
       } else if (type == 'MultiPolygon') {
         final List polygons = geometry['coordinates'] as List;
         for (final polygon in polygons) {
-          final List rings = polygon as List;
-          if (_pointInPolygon(lng, lat, rings[0] as List)) {
+          if (_pointInPolygon(lng, lat, (polygon as List)[0] as List)) {
             found = true;
             break;
           }
         }
       }
+
       if (found) {
         final props = feature['properties'] as Map<String, dynamic>?;
         if (props != null) {
-          for (final key in [
-            'ISO3166-1-Alpha-3',
-            'ISO_A3',
-            'iso_a3',
-            'ADM0_A3',
-            'ISO3166-1-Alpha-2',
-            'ISO_A2',
-            'name',
-            'ADMIN',
-          ]) {
+          for (final key in ['ISO3166-1-Alpha-2', 'ISO_A2', 'iso_a2']) {
             final val = props[key];
-            if (val != null && val.toString().isNotEmpty && val.toString() != '-99') {
-              return {'key': key, 'value': val.toString()};
+            if (val != null &&
+                val.toString().isNotEmpty &&
+                val.toString() != '-99') {
+              return {'key': 'ISO_A2', 'value': val.toString()};
             }
           }
         }
-        break;
       }
     }
     return null;
   }
 
-  /// Algoritm point-in-polygon
   static bool _pointInPolygon(double lng, double lat, List ring) {
     bool inside = false;
     final int n = ring.length;
