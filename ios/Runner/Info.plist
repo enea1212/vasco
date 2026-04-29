@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Avem nevoie de cameră pentru a face poze la locație</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Acces la galerie foto</string>
 </dict>
 </plist>

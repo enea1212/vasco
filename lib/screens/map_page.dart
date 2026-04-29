@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart' as img_picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import '../helpers/mapbox_helper.dart';
+import 'package:vasco/helpers/mapbox_helper.dart';
+import 'package:vasco/helpers/heatmap_helper.dart';
+import 'package:vasco/services/photo_service.dart';
+import 'package:vasco/widgets/story_viewer.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart' as geo;
@@ -24,23 +29,21 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   bool _isLoading = true;
 
-  // Harta
   MapboxMap? _mapboxMap;
   PointAnnotationManager? _pointAnnotationManager;
+  CircleAnnotationManager? _circleAnnotationManager;
   PointAnnotation? _userAnnotation;
 
-  // GeoJSON
   String? _geoJsonString;
   bool _geoJsonLoaded = false;
   Map<String, dynamic>? _geoJsonData;
 
-  // Locație & imagine
   geo.Position? _currentPosition;
   StreamSubscription<geo.Position>? _positionStream;
   Uint8List? _cachedProfileImage;
 
-  // Țări share-uite
   List<Map<String, String>> _sharedCountries = [];
+  bool _showOnlyMine = false;
 
   final Completer<void> _mapReadyCompleter = Completer<void>();
 
@@ -56,22 +59,12 @@ class _MapPageState extends State<MapPage> {
     super.dispose();
   }
 
-  // ─────────────────────────────────────────────
-  // Bootstrap
-  // ─────────────────────────────────────────────
-
   Future<void> _bootstrap() async {
-    await Future.wait([
-      _loadGeoJson(),
-      _initLocationAndImage(),
-    ]);
-
+    await Future.wait([_loadGeoJson(), _initLocationAndImage()]);
     if (!mounted) return;
     setState(() => _isLoading = false);
-
     await _mapReadyCompleter.future;
     if (!mounted) return;
-
     _startPositionStream();
   }
 
@@ -88,27 +81,18 @@ class _MapPageState extends State<MapPage> {
     _geoJsonLoaded = true;
   }
 
-  // ─────────────────────────────────────────────
-  // Locație
-  // ─────────────────────────────────────────────
-
   Future<geo.Position?> _getLocationWithPermission() async {
-    bool serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return null;
-
-    geo.LocationPermission permission = await geo.Geolocator.checkPermission();
-    if (permission == geo.LocationPermission.denied) {
-      permission = await geo.Geolocator.requestPermission();
-      if (permission == geo.LocationPermission.denied) return null;
+    if (!await geo.Geolocator.isLocationServiceEnabled()) return null;
+    geo.LocationPermission perm = await geo.Geolocator.checkPermission();
+    if (perm == geo.LocationPermission.denied) {
+      perm = await geo.Geolocator.requestPermission();
+      if (perm == geo.LocationPermission.denied) return null;
     }
-
-    if (permission == geo.LocationPermission.deniedForever) return null;
-
+    if (perm == geo.LocationPermission.deniedForever) return null;
     try {
       return await geo.Geolocator.getCurrentPosition(
-        desiredAccuracy: geo.LocationAccuracy.high,
-      );
-    } catch (e) {
+          desiredAccuracy: geo.LocationAccuracy.high);
+    } catch (_) {
       return null;
     }
   }
@@ -116,9 +100,7 @@ class _MapPageState extends State<MapPage> {
   void _startPositionStream() {
     _positionStream = geo.Geolocator.getPositionStream(
       locationSettings: const geo.LocationSettings(
-        accuracy: geo.LocationAccuracy.high,
-        distanceFilter: 2,
-      ),
+          accuracy: geo.LocationAccuracy.high, distanceFilter: 2),
     ).listen((geo.Position position) async {
       if (!mounted) return;
       setState(() => _currentPosition = position);
@@ -126,13 +108,10 @@ class _MapPageState extends State<MapPage> {
     });
   }
 
-  // ─────────────────────────────────────────────
-  // Annotation — apare doar dacă țara e deblocată
-  // ─────────────────────────────────────────────
-
   bool _isCurrentCountryUnlocked(geo.Position pos) {
     if (_geoJsonData == null) return false;
-    final detected = MapboxHelper.detectCountry(pos.latitude, pos.longitude, _geoJsonData!);
+    final detected =
+        MapboxHelper.detectCountry(pos.latitude, pos.longitude, _geoJsonData!);
     if (detected == null) return false;
     return _sharedCountries.any((c) => c['value'] == detected['value']);
   }
@@ -143,7 +122,6 @@ class _MapPageState extends State<MapPage> {
     final unlocked = _isCurrentCountryUnlocked(position);
 
     if (!unlocked) {
-      // Șterge annotation-ul dacă există
       if (_userAnnotation != null) {
         await _pointAnnotationManager!.delete(_userAnnotation!);
         _userAnnotation = null;
@@ -151,7 +129,8 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    final point = Point(coordinates: Position(position.longitude, position.latitude));
+    final point =
+        Point(coordinates: Position(position.longitude, position.latitude));
 
     if (_userAnnotation == null) {
       _userAnnotation = await _pointAnnotationManager!.create(
@@ -168,9 +147,90 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Imagine profil
-  // ─────────────────────────────────────────────
+  Future<void> _refreshHeatmapCircles() async {
+    if (_circleAnnotationManager == null) return;
+    await _circleAnnotationManager!.deleteAll();
+
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final photos = await MyPhotoService.fetchAllPhotos(
+      onlyUserId: _showOnlyMine ? user?.id : null,
+    );
+
+    if (photos.isEmpty) return;
+
+    final clusters = <_Cluster>[];
+    for (final photo in photos) {
+      final lat = (photo['latitude'] as num).toDouble();
+      final lng = (photo['longitude'] as num).toDouble();
+
+      bool added = false;
+      for (final cluster in clusters) {
+        if (MyHeatmapHelper.distanceKm(lat, lng, cluster.lat, cluster.lng) < 0.5) {
+          cluster.photos.add(photo);
+          added = true;
+          break;
+        }
+      }
+      if (!added) {
+        clusters.add(_Cluster(lat: lat, lng: lng, photos: [photo]));
+      }
+    }
+
+    final maxCount =
+        clusters.map((c) => c.photos.length).reduce((a, b) => a > b ? a : b);
+
+    for (final cluster in clusters) {
+      final intensity = cluster.photos.length / maxCount;
+      final color = _heatColor(intensity);
+
+      await _circleAnnotationManager!.create(
+        CircleAnnotationOptions(
+          geometry: Point(coordinates: Position(cluster.lng, cluster.lat)),
+          circleRadius: 20.0 + intensity * 40.0,
+          circleColor: color.value,
+          circleOpacity: 0.55,
+          circleBlur: 1.2,
+        ),
+      );
+    }
+  }
+
+  Color _heatColor(double t) {
+    if (t < 0.33) {
+      return Color.lerp(Colors.blue.shade300, Colors.cyan.shade400, t / 0.33)!;
+    } else if (t < 0.66) {
+      return Color.lerp(
+          Colors.cyan.shade400, Colors.yellow.shade600, (t - 0.33) / 0.33)!;
+    } else {
+      return Color.lerp(
+          Colors.yellow.shade600, Colors.red.shade600, (t - 0.66) / 0.34)!;
+    }
+  }
+
+  void _onMapTap(MapContentGestureContext gestureContext) async {
+    final tappedLat = gestureContext.point.coordinates.lat.toDouble();
+    final tappedLng = gestureContext.point.coordinates.lng.toDouble();
+
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final nearbyPhotos = await MyPhotoService.fetchPhotosNear(
+      latitude: tappedLat,
+      longitude: tappedLng,
+      radiusKm: 1.0,
+      onlyUserId: _showOnlyMine ? user?.id : null,
+    );
+
+    if (nearbyPhotos.isEmpty) return;
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (_, __, ___) => StoryViewer(photos: nearbyPhotos),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+  }
 
   Future<Uint8List> _buildProfileImage() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
@@ -178,12 +238,12 @@ class _MapPageState extends State<MapPage> {
 
     const int size = 96;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()));
+    final canvas =
+        Canvas(recorder, Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()));
     final paint = Paint()..isAntiAlias = true;
 
     paint.color = Colors.white;
     canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, paint);
-
     paint.color = Colors.blue.shade400;
     canvas.drawCircle(const Offset(size / 2, size / 2), size / 2 - 3, paint);
 
@@ -191,11 +251,10 @@ class _MapPageState extends State<MapPage> {
       try {
         final response = await http.get(Uri.parse(photoUrl));
         if (response.statusCode == 200) {
-          final codec = await ui.instantiateImageCodec(
-              response.bodyBytes, targetWidth: size, targetHeight: size);
+          final codec = await ui.instantiateImageCodec(response.bodyBytes,
+              targetWidth: size, targetHeight: size);
           final frame = await codec.getNextFrame();
           final img = frame.image;
-
           final clipPath = Path()
             ..addOval(Rect.fromCircle(
                 center: const Offset(size / 2, size / 2),
@@ -203,16 +262,15 @@ class _MapPageState extends State<MapPage> {
           canvas.save();
           canvas.clipPath(clipPath);
           canvas.drawImageRect(
-            img,
-            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            const Rect.fromLTRB(4, 4, size - 4, size - 4),
-            paint,
-          );
+              img,
+              Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+              const Rect.fromLTRB(4, 4, size - 4, size - 4),
+              paint);
           canvas.restore();
         } else {
           _drawFallbackIcon(canvas, size);
         }
-      } catch (e) {
+      } catch (_) {
         _drawFallbackIcon(canvas, size);
       }
     } else {
@@ -239,9 +297,104 @@ class _MapPageState extends State<MapPage> {
         paint);
   }
 
-  // ─────────────────────────────────────────────
-  // Share & colorare țări
-  // ─────────────────────────────────────────────
+  // Dialog alegere sursă foto
+  Future<img_picker.XFile?> _pickImage() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Adaugă o poză'),
+        content: const Text('Alege sursa fotografiei'),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.camera_alt),
+            label: const Text('Cameră'),
+            onPressed: () => Navigator.pop(ctx, 'camera'),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.photo_library),
+            label: const Text('Galerie'),
+            onPressed: () => Navigator.pop(ctx, 'gallery'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null) return null;
+
+    final picker = img_picker.ImagePicker();
+    try {
+      return await picker.pickImage(
+        source: choice == 'camera'
+            ? img_picker.ImageSource.camera
+            : img_picker.ImageSource.gallery,
+        imageQuality: 85,
+      );
+    } catch (_) {
+      // Dacă camera eșuează (emulator), fallback la galerie
+      return await picker.pickImage(
+        source: img_picker.ImageSource.gallery,
+        imageQuality: 85,
+      );
+    }
+  }
+
+  Future<void> _shareLocationAndColorCountry() async {
+    if (!_geoJsonLoaded || _geoJsonData == null || _mapboxMap == null) return;
+
+    final pos = await _getLocationWithPermission();
+    if (pos == null) return;
+
+    final pickedFile = await _pickImage();
+    if (pickedFile == null) return;
+
+    final imageFile = File(pickedFile.path);
+
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    if (user == null) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Se încarcă poza...')));
+    }
+
+    await MyPhotoService.uploadPhoto(
+      userId: user.id,
+      displayName: user.displayName ?? 'Unknown',
+      userPhotoUrl: user.photoUrl,
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      imageFile: imageFile,
+    );
+
+    final detected =
+        MapboxHelper.detectCountry(pos.latitude, pos.longitude, _geoJsonData!);
+
+    if (detected != null) {
+      final docRef =
+          FirebaseFirestore.instance.collection('users').doc(user.id);
+      await docRef.set({
+        'shared_countries': FieldValue.arrayUnion([detected]),
+      }, SetOptions(merge: true));
+
+      if (!_sharedCountries.any((c) => c['value'] == detected['value'])) {
+        setState(() => _sharedCountries.add(detected));
+      }
+
+      await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
+      await _refreshUserAnnotation(pos);
+    }
+
+    await _refreshHeatmapCircles();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(detected != null
+                ? 'Locație înregistrată în ${detected['value']}!'
+                : 'Locație înregistrată!')),
+      );
+    }
+  }
 
   Future<void> _loadSharedCountriesAndColor() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
@@ -257,61 +410,23 @@ class _MapPageState extends State<MapPage> {
       _sharedCountries =
           list.map((e) => Map<String, String>.from(e)).toList();
       await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
-
-      // Dacă avem deja locație, actualizăm annotation-ul
       if (_currentPosition != null) {
         await _refreshUserAnnotation(_currentPosition!);
       }
     }
+
+    await _refreshHeatmapCircles();
   }
-
-  Future<void> _shareLocationAndColorCountry() async {
-    if (!_geoJsonLoaded || _geoJsonData == null || _mapboxMap == null) return;
-
-    final pos = await _getLocationWithPermission();
-    if (pos == null) return;
-
-    final detected =
-        MapboxHelper.detectCountry(pos.latitude, pos.longitude, _geoJsonData!);
-
-    if (detected != null) {
-      final user =
-          Provider.of<UserProvider>(context, listen: false).user;
-      if (user != null) {
-        final docRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.id);
-        await docRef.set({
-          'shared_countries': FieldValue.arrayUnion([detected]),
-        }, SetOptions(merge: true));
-
-        if (!_sharedCountries.any((c) => c['value'] == detected['value'])) {
-          _sharedCountries.add(detected);
-        }
-      }
-
-      await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
-
-      // Acum că țara e deblocată, adaugă annotation-ul
-      if (_currentPosition != null) {
-        await _refreshUserAnnotation(_currentPosition!);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Țară detectată: ${detected['value']}')));
-      }
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // Callback hartă
-  // ─────────────────────────────────────────────
 
   void _onMapCreated(MapboxMap mapboxMap) async {
     _mapboxMap = mapboxMap;
+
     _pointAnnotationManager =
         await mapboxMap.annotations.createPointAnnotationManager();
+    _circleAnnotationManager =
+        await mapboxMap.annotations.createCircleAnnotationManager();
+
+    mapboxMap.setOnMapTapListener(_onMapTap);
 
     if (!_mapReadyCompleter.isCompleted) _mapReadyCompleter.complete();
 
@@ -326,10 +441,6 @@ class _MapPageState extends State<MapPage> {
     await _loadSharedCountriesAndColor();
   }
 
-  // ─────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -340,18 +451,42 @@ class _MapPageState extends State<MapPage> {
                 MapWidget(
                   styleUri:
                       "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
-                  gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  gestureRecognizers:
+                      <Factory<OneSequenceGestureRecognizer>>{
                     Factory<OneSequenceGestureRecognizer>(
                         () => EagerGestureRecognizer()),
                   },
                   onMapCreated: _onMapCreated,
                 ),
                 Positioned(
+                  top: MediaQuery.of(context).padding.top + 12,
+                  left: 16,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 6,
+                            offset: Offset(0, 2))
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _toggleBtn('Toți', !_showOnlyMine),
+                        _toggleBtn('Ale mele', _showOnlyMine),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
                   right: 16,
-                  top: 16,
+                  bottom: MediaQuery.of(context).padding.bottom + 24,
                   child: FloatingActionButton.extended(
                     heroTag: 'share_location',
-                    icon: const Icon(Icons.location_on),
+                    icon: const Icon(Icons.camera_alt),
                     label: const Text('Share Location'),
                     onPressed: _shareLocationAndColorCountry,
                   ),
@@ -360,4 +495,36 @@ class _MapPageState extends State<MapPage> {
             ),
     );
   }
+
+  Widget _toggleBtn(String label, bool active) {
+    return GestureDetector(
+      onTap: () async {
+        setState(() => _showOnlyMine = label == 'Ale mele');
+        await _refreshHeatmapCircles();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? Colors.blue.shade700 : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.grey.shade600,
+            fontWeight: active ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Cluster {
+  final double lat;
+  final double lng;
+  final List<Map<String, dynamic>> photos;
+  _Cluster({required this.lat, required this.lng, required this.photos});
 }
