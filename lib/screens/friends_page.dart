@@ -37,40 +37,54 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
 
     return Column(
       children: [
-        TabBar(
-          controller: _tabController,
-          labelColor: Colors.black,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.black,
-          tabs: [
-            const Tab(icon: Icon(Icons.search), text: 'Caută'),
-            Tab(
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.person_add),
-                      SizedBox(height: 2),
-                      Text('Cereri', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                  if (pendingCount > 0)
-                    Positioned(
-                      right: -8,
-                      top: -4,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        child: Text('$pendingCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                      ),
-                    ),
-                ],
-              ),
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: const Color(0xFF6B7280),
+            indicator: BoxDecoration(
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const Tab(icon: Icon(Icons.people), text: 'Prieteni'),
-          ],
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            tabs: [
+              const Tab(icon: Icon(Icons.search_rounded, size: 20), text: 'Caută'),
+              Tab(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.person_add_rounded, size: 20),
+                        SizedBox(height: 2),
+                        Text('Cereri', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    if (pendingCount > 0)
+                      Positioned(
+                        right: -10,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+                          child: Text('$pendingCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Tab(icon: Icon(Icons.people_rounded, size: 20), text: 'Prieteni'),
+            ],
+          ),
         ),
         Expanded(
           child: TabBarView(
@@ -113,16 +127,16 @@ class _SearchTabState extends State<_SearchTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
           child: TextField(
             controller: _ctrl,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Caută după nume...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF9CA3AF)),
               suffixIcon: _ctrl.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(Icons.clear_rounded, color: Color(0xFF9CA3AF)),
                       onPressed: () {
                         _ctrl.clear();
                         context.read<FriendsProvider>().clearSearch();
@@ -130,9 +144,15 @@ class _SearchTabState extends State<_SearchTab> {
                       },
                     )
                   : null,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
-              fillColor: Colors.grey[100],
+              fillColor: const Color(0xFFF3F4F6),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
             onChanged: (val) {
               setState(() {});
@@ -189,18 +209,39 @@ class _UserTileState extends State<_UserTile> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: (widget.user.photoUrl?.isNotEmpty == true)
-            ? NetworkImage(widget.user.photoUrl!)
-            : null,
-        child: (widget.user.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
-      title: Text(widget.user.displayName ?? widget.user.email),
-      subtitle: widget.user.biography?.isNotEmpty == true
-          ? Text(widget.user.biography!, maxLines: 1, overflow: TextOverflow.ellipsis)
-          : null,
-      trailing: _buildButton(context),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundImage: (widget.user.photoUrl?.isNotEmpty == true) ? NetworkImage(widget.user.photoUrl!) : null,
+            backgroundColor: const Color(0xFFF3F4F6),
+            child: (widget.user.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.user.displayName ?? widget.user.email,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
+                if (widget.user.biography?.isNotEmpty == true)
+                  Text(widget.user.biography!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildButton(context),
+        ],
+      ),
     );
   }
 
@@ -213,46 +254,40 @@ class _UserTileState extends State<_UserTile> {
 
     switch (_status) {
       case 'friends':
-        return OutlinedButton(
-          onPressed: () async {
-            await provider.removeFriend(widget.currentUserId, widget.user.id);
-            if (mounted) setState(() => _status = 'none');
-          },
-          style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('Elimină'),
-        );
+        return _actionBtn('Prieten', const Color(0xFFF3F4F6), const Color(0xFF374151), () async {
+          await provider.removeFriend(widget.currentUserId, widget.user.id);
+          if (mounted) setState(() => _status = 'none');
+        });
       case 'pending_sent':
-        return OutlinedButton(
-          onPressed: () async {
-            await provider.cancelRequest(widget.currentUserId, widget.user.id);
-            if (mounted) setState(() => _status = 'none');
-          },
-          child: const Text('Anulează'),
-        );
+        return _actionBtn('Trimis', const Color(0xFFF3F4F6), const Color(0xFF6B7280), () async {
+          await provider.cancelRequest(widget.currentUserId, widget.user.id);
+          if (mounted) setState(() => _status = 'none');
+        });
       case 'pending_received':
-        return ElevatedButton(
-          onPressed: () async {
-            final req = provider.incomingRequests
-                .where((r) => r.fromUserId == widget.user.id)
-                .firstOrNull;
-            if (req != null) {
-              await provider.acceptRequest(req.id, req.fromUserId, req.toUserId);
-              if (mounted) setState(() => _status = 'friends');
-            }
-          },
-          child: const Text('Acceptă'),
-        );
+        return _actionBtn('Acceptă', const Color(0xFF111827), Colors.white, () async {
+          final req = provider.incomingRequests.where((r) => r.fromUserId == widget.user.id).firstOrNull;
+          if (req != null) {
+            await provider.acceptRequest(req.id, req.fromUserId, req.toUserId);
+            if (mounted) setState(() => _status = 'friends');
+          }
+        });
       default:
-        return ElevatedButton.icon(
-          onPressed: () async {
-            await provider.sendRequest(widget.currentUserId, widget.user.id);
-            if (mounted) setState(() => _status = 'pending_sent');
-          },
-          icon: const Icon(Icons.person_add, size: 16),
-          label: const Text('Adaugă'),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-        );
+        return _actionBtn('+ Adaugă', const Color(0xFF4F46E5), Colors.white, () async {
+          await provider.sendRequest(widget.currentUserId, widget.user.id);
+          if (mounted) setState(() => _status = 'pending_sent');
+        });
     }
+  }
+
+  Widget _actionBtn(String label, Color bg, Color fg, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+        child: Text(label, style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600)),
+      ),
+    );
   }
 }
 
@@ -267,19 +302,26 @@ class _RequestsTab extends StatelessWidget {
     final requests = context.watch<FriendsProvider>().incomingRequests;
 
     if (requests.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_add_disabled, size: 64, color: Colors.grey),
-            SizedBox(height: 12),
-            Text('Nicio cerere de prietenie.', style: TextStyle(color: Colors.grey)),
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(20)),
+              child: const Icon(Icons.person_add_disabled_rounded, size: 36, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 16),
+            const Text('Nicio cerere', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Color(0xFF374151))),
+            const SizedBox(height: 4),
+            const Text('Nu ai cereri de prietenie în așteptare.', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
           ],
         ),
       );
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: requests.length,
       itemBuilder: (context, i) => _RequestTile(
         request: requests[i],
@@ -318,35 +360,61 @@ class _RequestTileState extends State<_RequestTile> {
     final provider = context.read<FriendsProvider>();
     final name = _loading ? 'Se încarcă...' : (_sender?.displayName ?? _sender?.email ?? widget.request.fromUserId);
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: (_sender?.photoUrl?.isNotEmpty == true)
-            ? NetworkImage(_sender!.photoUrl!)
-            : null,
-        child: (_sender?.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
-      title: Text(name),
-      subtitle: const Text('Vrea să fii prieten cu tine'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          ElevatedButton(
-            onPressed: () async {
-              await provider.acceptRequest(
-                widget.request.id,
-                widget.request.fromUserId,
-                widget.request.toUserId,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-            child: const Text('Acceptă'),
+          CircleAvatar(
+            radius: 24,
+            backgroundImage: (_sender?.photoUrl?.isNotEmpty == true) ? NetworkImage(_sender!.photoUrl!) : null,
+            backgroundColor: const Color(0xFFF3F4F6),
+            child: (_sender?.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
+                const Text('Vrea să fii prieten', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: () async {
-              await provider.declineRequest(widget.request.id, widget.request.fromUserId);
-            },
-            child: const Text('Refuză'),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  await provider.acceptRequest(widget.request.id, widget.request.fromUserId, widget.request.toUserId);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(10)),
+                  child: const Text('Acceptă', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () async {
+                  await provider.declineRequest(widget.request.id, widget.request.fromUserId);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text('Refuză', style: TextStyle(color: Color(0xFF6B7280), fontSize: 13, fontWeight: FontWeight.w500)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -365,48 +433,73 @@ class _FriendsTab extends StatelessWidget {
     final friends = context.watch<FriendsProvider>().friends;
 
     if (friends.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey),
-            SizedBox(height: 12),
-            Text(
-              'Nu ai niciun prieten încă.\nCaută utilizatori pentru a adăuga prieteni.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(20)),
+              child: const Icon(Icons.people_outline_rounded, size: 36, color: Color(0xFF9CA3AF)),
             ),
+            const SizedBox(height: 16),
+            const Text('Niciun prieten', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Color(0xFF374151))),
+            const SizedBox(height: 4),
+            const Text('Caută utilizatori pentru a adăuga\nprieteni noi.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
           ],
         ),
       );
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: friends.length,
       itemBuilder: (context, i) {
         final friend = friends[i];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundImage: (friend.photoUrl?.isNotEmpty == true)
-                ? NetworkImage(friend.photoUrl!)
-                : null,
-            child: (friend.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person),
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
           ),
-          title: Text(friend.displayName ?? friend.email),
-          subtitle: friend.biography?.isNotEmpty == true
-              ? Text(friend.biography!, maxLines: 1, overflow: TextOverflow.ellipsis)
-              : null,
-          trailing: PopupMenuButton<String>(
-            onSelected: (val) async {
-              if (val == 'remove') {
-                final confirm = await _confirmRemove(context, friend.displayName ?? friend.email);
-                if (confirm && context.mounted) {
-                  await context.read<FriendsProvider>().removeFriend(currentUser.id, friend.id);
-                }
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'remove', child: Text('Elimină prieten')),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundImage: (friend.photoUrl?.isNotEmpty == true) ? NetworkImage(friend.photoUrl!) : null,
+                backgroundColor: const Color(0xFFF3F4F6),
+                child: (friend.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(friend.displayName ?? friend.email,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
+                    if (friend.biography?.isNotEmpty == true)
+                      Text(friend.biography!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded, color: Color(0xFFD1D5DB)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onSelected: (val) async {
+                  if (val == 'remove') {
+                    final confirm = await _confirmRemove(context, friend.displayName ?? friend.email);
+                    if (confirm && context.mounted) {
+                      await context.read<FriendsProvider>().removeFriend(currentUser.id, friend.id);
+                    }
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'remove', child: Text('Elimină prieten')),
+                ],
+              ),
             ],
           ),
         );

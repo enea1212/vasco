@@ -4,6 +4,7 @@ class UserModel {
   final String? displayName;
   final String? photoUrl;
   final String? biography;
+  final int sharedCountriesCount;
 
   UserModel({
     required this.id,
@@ -11,6 +12,7 @@ class UserModel {
     this.displayName,
     this.photoUrl,
     this.biography,
+    this.sharedCountriesCount = 0,
   });
 
   // Transformă obiectul User de la Firebase în modelul nostru local

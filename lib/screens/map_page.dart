@@ -344,7 +344,45 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4F46E5).withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.travel_explore_rounded, color: Colors.white, size: 36),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Se încarcă harta...',
+                      style: TextStyle(color: Color(0xFF6B7280), fontSize: 15, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 12),
+                  const SizedBox(
+                    width: 120,
+                    child: LinearProgressIndicator(
+                      color: Color(0xFF4F46E5),
+                      backgroundColor: Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.all(Radius.circular(4)),
+                    ),
+                  ),
+                ],
+              ),
+            )
           : Stack(
               children: [
                 MapWidget(
@@ -395,7 +433,7 @@ class _MapPageState extends State<MapPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? Colors.blue.shade700 : Colors.transparent,
+          color: active ? const Color(0xFF4F46E5) : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Text(

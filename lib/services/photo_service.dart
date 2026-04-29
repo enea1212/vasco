@@ -14,13 +14,15 @@ class MyPhotoService {
     required double latitude,
     required double longitude,
     required File imageFile,
+    String? countryName,
+    String? locationName,
   }) async {
     final id = const Uuid().v4();
     final ref = FirebaseStorage.instance.ref('location_photos/$id.jpg');
     await ref.putFile(imageFile);
     final downloadUrl = await ref.getDownloadURL();
 
-    await FirebaseFirestore.instance.collection(_collection).doc(id).set({
+    final data = <String, dynamic>{
       'userId': userId,
       'displayName': displayName,
       'userPhotoUrl': userPhotoUrl ?? '',
@@ -28,7 +30,10 @@ class MyPhotoService {
       'longitude': longitude,
       'imageUrl': downloadUrl,
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    };
+    if (countryName != null) data['countryName'] = countryName;
+    if (locationName != null) data['locationName'] = locationName;
+    await FirebaseFirestore.instance.collection(_collection).doc(id).set(data);
   }
 
   static Future<List<Map<String, dynamic>>> fetchPhotosNear({

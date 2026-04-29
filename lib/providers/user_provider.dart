@@ -26,6 +26,7 @@ class UserProvider with ChangeNotifier {
           displayName: data['displayName'],
           photoUrl: data['photoUrl'],
           biography: data['bio'] ?? "",
+          sharedCountriesCount: (data['shared_countries'] as List?)?.length ?? 0,
         );
         notifyListeners();
       }
