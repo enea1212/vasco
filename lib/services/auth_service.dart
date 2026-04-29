@@ -52,7 +52,9 @@ class AuthService {
         );
 
         // 3. SALVARE ÎN FIRESTORE (Colecția 'users')
-        await _db.collection('users').doc(newUser.id).set(newUser.toMap());
+        final userData = newUser.toMap();
+        userData['displayNameLower'] = name.toLowerCase();
+        await _db.collection('users').doc(newUser.id).set(userData);
 
         return newUser;
       }
@@ -108,6 +110,11 @@ class AuthService {
         };
 
         mergedData.removeWhere((key, value) => value == null);
+
+        final displayName = mergedData['displayName']?.toString() ?? '';
+        if (displayName.isNotEmpty) {
+          mergedData['displayNameLower'] = displayName.toLowerCase();
+        }
 
         await _db
             .collection('users')

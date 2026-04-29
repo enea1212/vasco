@@ -13,8 +13,8 @@ class CustomBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 110, 
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      height: 110,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -23,40 +23,64 @@ class CustomBottomNavBar extends StatelessWidget {
             child: Container(
               height: 70,
               decoration: BoxDecoration(
-                color: Colors.black, // Fundal negru
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF111827), Color(0xFF1F2937)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(35),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 15,
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 20,
                     offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                    blurRadius: 24,
+                    spreadRadius: 2,
                   ),
                 ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildNavItem(Icons.home_filled, "Home", 0),
-                  _buildNavItem(Icons.people_alt, "Friends", 1, hasBadge: true),
-                  const SizedBox(width: 60),
-                  _buildNavItem(Icons.map, "Mapa", 3), // Mapa în loc de Memories
-                  _buildNavItem(Icons.person, "Profile", 4, hasBadge: true),
+                  _buildNavItem(Icons.home_rounded, 'Home', 0),
+                  _buildNavItem(Icons.people_rounded, 'Prieteni', 1, hasBadge: true),
+                  const SizedBox(width: 64),
+                  _buildNavItem(Icons.map_rounded, 'Mapa', 3),
+                  _buildNavItem(Icons.person_rounded, 'Profil', 4, hasBadge: true),
                 ],
               ),
             ),
           ),
           Positioned(
-            top: 5,
+            top: 2,
             child: GestureDetector(
               onTap: () => onTap(2),
               child: Container(
-                width: 65,
-                height: 65,
-                decoration: const BoxDecoration(
-                  color: Colors.white, // Buton alb central
+                width: 66,
+                height: 66,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.55),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.camera_alt, color: Colors.black, size: 32),
+                child: const Icon(
+                  Icons.add_location_alt_rounded,
+                  color: Colors.white,
+                  size: 30,
+                ),
               ),
             ),
           ),
@@ -65,33 +89,62 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index, {bool hasBadge = false}) {
-    bool isSelected = currentIndex == index;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: () => onTap(index),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(icon, color: isSelected ? Colors.white : Colors.grey, size: 26),
-              if (hasBadge) // Bulina roșie
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                  ),
-                ),
-            ],
-          ),
+  Widget _buildNavItem(IconData icon, String label, int index,
+      {bool hasBadge = false}) {
+    final isSelected = currentIndex == index;
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
         ),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontSize: 11)),
-      ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? Colors.white : Colors.white38,
+                  size: 24,
+                ),
+                if (hasBadge)
+                  Positioned(
+                    right: -3,
+                    top: -3,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF111827),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white38,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

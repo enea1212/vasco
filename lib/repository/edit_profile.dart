@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:vasco/providers/user_provider.dart';
-import '../services/auth_service.dart';
 import '../repository/user_repository.dart';
 
 class EditProfileScreen extends StatefulWidget {

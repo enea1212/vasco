@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:typed_data';
+
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart' as img_picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:vasco/helpers/mapbox_helper.dart';
 import 'package:vasco/helpers/heatmap_helper.dart';
@@ -35,7 +33,6 @@ class _MapPageState extends State<MapPage> {
   PointAnnotation? _userAnnotation;
 
   String? _geoJsonString;
-  bool _geoJsonLoaded = false;
   Map<String, dynamic>? _geoJsonData;
 
   geo.Position? _currentPosition;
@@ -78,7 +75,6 @@ class _MapPageState extends State<MapPage> {
   Future<void> _loadGeoJson() async {
     _geoJsonString = await rootBundle.loadString('assets/custom.geo.json');
     _geoJsonData = json.decode(_geoJsonString!) as Map<String, dynamic>;
-    _geoJsonLoaded = true;
   }
 
   Future<geo.Position?> _getLocationWithPermission() async {
@@ -297,104 +293,7 @@ class _MapPageState extends State<MapPage> {
         paint);
   }
 
-  // Dialog alegere sursă foto
-  Future<img_picker.XFile?> _pickImage() async {
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Adaugă o poză'),
-        content: const Text('Alege sursa fotografiei'),
-        actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Cameră'),
-            onPressed: () => Navigator.pop(ctx, 'camera'),
-          ),
-          TextButton.icon(
-            icon: const Icon(Icons.photo_library),
-            label: const Text('Galerie'),
-            onPressed: () => Navigator.pop(ctx, 'gallery'),
-          ),
-        ],
-      ),
-    );
 
-    if (choice == null) return null;
-
-    final picker = img_picker.ImagePicker();
-    try {
-      return await picker.pickImage(
-        source: choice == 'camera'
-            ? img_picker.ImageSource.camera
-            : img_picker.ImageSource.gallery,
-        imageQuality: 85,
-      );
-    } catch (_) {
-      // Dacă camera eșuează (emulator), fallback la galerie
-      return await picker.pickImage(
-        source: img_picker.ImageSource.gallery,
-        imageQuality: 85,
-      );
-    }
-  }
-
-  Future<void> _shareLocationAndColorCountry() async {
-    if (!_geoJsonLoaded || _geoJsonData == null || _mapboxMap == null) return;
-
-    final pos = await _getLocationWithPermission();
-    if (pos == null) return;
-
-    final pickedFile = await _pickImage();
-    if (pickedFile == null) return;
-
-    final imageFile = File(pickedFile.path);
-
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user == null) return;
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Se încarcă poza...')));
-    }
-
-    await MyPhotoService.uploadPhoto(
-      userId: user.id,
-      displayName: user.displayName ?? 'Unknown',
-      userPhotoUrl: user.photoUrl,
-      latitude: pos.latitude,
-      longitude: pos.longitude,
-      imageFile: imageFile,
-    );
-
-    final detected =
-        MapboxHelper.detectCountry(pos.latitude, pos.longitude, _geoJsonData!);
-
-    if (detected != null) {
-      final docRef =
-          FirebaseFirestore.instance.collection('users').doc(user.id);
-      await docRef.set({
-        'shared_countries': FieldValue.arrayUnion([detected]),
-      }, SetOptions(merge: true));
-
-      if (!_sharedCountries.any((c) => c['value'] == detected['value'])) {
-        setState(() => _sharedCountries.add(detected));
-      }
-
-      await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
-      await _refreshUserAnnotation(pos);
-    }
-
-    await _refreshHeatmapCircles();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(detected != null
-                ? 'Locație înregistrată în ${detected['value']}!'
-                : 'Locație înregistrată!')),
-      );
-    }
-  }
 
   Future<void> _loadSharedCountriesAndColor() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
@@ -479,16 +378,6 @@ class _MapPageState extends State<MapPage> {
                         _toggleBtn('Ale mele', _showOnlyMine),
                       ],
                     ),
-                  ),
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: MediaQuery.of(context).padding.bottom + 24,
-                  child: FloatingActionButton.extended(
-                    heroTag: 'share_location',
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Share Location'),
-                    onPressed: _shareLocationAndColorCountry,
                   ),
                 ),
               ],
