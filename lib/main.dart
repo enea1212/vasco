@@ -8,6 +8,8 @@ import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/user_repository.dart';
 import 'package:vasco/repository/friends_repository.dart';
 import 'package:vasco/providers/friends_provider.dart';
+import 'package:vasco/repository/messaging_repository.dart';
+import 'package:vasco/providers/messaging_provider.dart';
 import 'package:vasco/screens/home_screen.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +32,11 @@ Future<void> main() async {
         ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
         Provider<FriendsRepository>(create: (_) => FriendsRepository()),
         ChangeNotifierProvider<FriendsProvider>(create: (_) => FriendsProvider()),
+        Provider<MessagingRepository>(create: (_) => MessagingRepository()),
+        ChangeNotifierProxyProvider<MessagingRepository, MessagingProvider>(
+          create: (context) => MessagingProvider(context.read<MessagingRepository>()),
+          update: (context, repo, previous) => previous ?? MessagingProvider(repo),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -147,6 +154,7 @@ class MyApp extends StatelessWidget {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.read<UserProvider>().listenToUser(uid);
               context.read<FriendsProvider>().init(uid);
+              context.read<MessagingProvider>().init(uid);
             });
             return const HomeScreen();
           }

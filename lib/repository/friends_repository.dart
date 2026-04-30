@@ -1,21 +1,54 @@
 ﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../models/friend_request_model.dart';
 import '../models/user_model.dart';
 
 class FriendsRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
-  // Caută utilizatori după nume (case-insensitive prefix search)
+  // ─── WRITE OPERATIONS (Cloud Functions) ──────────────────────────────────
+
+  Future<void> sendFriendRequest(String fromUserId, String toUserId) async {
+    final callable = _functions.httpsCallable('sendFriendRequest');
+    await callable.call({'toUserId': toUserId});
+  }
+
+  Future<void> cancelFriendRequest(String fromUserId, String toUserId) async {
+    final callable = _functions.httpsCallable('cancelFriendRequest');
+    await callable.call({'toUserId': toUserId});
+  }
+
+  Future<void> acceptFriendRequest(
+    String requestId,
+    String fromUserId,
+    String toUserId,
+  ) async {
+    final callable = _functions.httpsCallable('acceptFriendRequest');
+    await callable.call({'requestId': requestId});
+  }
+
+  Future<void> declineFriendRequest(String requestId) async {
+    final callable = _functions.httpsCallable('declineFriendRequest');
+    await callable.call({'requestId': requestId});
+  }
+
+  Future<void> removeFriend(String currentUserId, String friendId) async {
+    final callable = _functions.httpsCallable('removeFriend');
+    await callable.call({'friendId': friendId});
+  }
+
+  // ─── READ OPERATIONS (Firestore direct) ──────────────────────────────────
+
   Future<List<UserModel>> searchUsers(String query, String currentUserId) async {
     if (query.trim().isEmpty) return [];
 
     final lower = query.trim().toLowerCase();
-    final upper = lower + '';
 
     final snapshot = await _db
         .collection('users')
         .where('displayNameLower', isGreaterThanOrEqualTo: lower)
-        .where('displayNameLower', isLessThanOrEqualTo: upper)
+        .where('displayNameLower', isLessThanOrEqualTo: lower)
         .limit(20)
         .get();
 
@@ -34,77 +67,6 @@ class FriendsRepository {
         .toList();
   }
 
-  // Trimite cerere de prietenie
-  Future<void> sendFriendRequest(String fromUserId, String toUserId) async {
-    // Verifică dacă există deja o cerere
-    final existing = await _db
-        .collection('friend_requests')
-        .where('fromUserId', isEqualTo: fromUserId)
-        .where('toUserId', isEqualTo: toUserId)
-        .where('status', isEqualTo: 'pending')
-        .get();
-
-    if (existing.docs.isNotEmpty) return;
-
-    final request = FriendRequestModel(
-      id: '',
-      fromUserId: fromUserId,
-      toUserId: toUserId,
-      status: 'pending',
-      createdAt: DateTime.now(),
-    );
-
-    await _db.collection('friend_requests').add(request.toMap());
-  }
-
-  // Anulează o cerere trimisă
-  Future<void> cancelFriendRequest(String fromUserId, String toUserId) async {
-    final snapshot = await _db
-        .collection('friend_requests')
-        .where('fromUserId', isEqualTo: fromUserId)
-        .where('toUserId', isEqualTo: toUserId)
-        .where('status', isEqualTo: 'pending')
-        .get();
-
-    for (final doc in snapshot.docs) {
-      await doc.reference.delete();
-    }
-  }
-
-  // Acceptă cererea: șterge request, adaugă în sub-colecțiile friends ale ambilor
-  Future<void> acceptFriendRequest(String requestId, String fromUserId, String toUserId) async {
-    final batch = _db.batch();
-
-    batch.delete(_db.collection('friend_requests').doc(requestId));
-
-    final now = Timestamp.now();
-
-    batch.set(
-      _db.collection('users').doc(toUserId).collection('friends').doc(fromUserId),
-      {'userId': fromUserId, 'addedAt': now},
-    );
-    batch.set(
-      _db.collection('users').doc(fromUserId).collection('friends').doc(toUserId),
-      {'userId': toUserId, 'addedAt': now},
-    );
-
-    await batch.commit();
-  }
-
-  // Refuză și șterge cererea
-  Future<void> declineFriendRequest(String requestId) async {
-    await _db.collection('friend_requests').doc(requestId).delete();
-  }
-
-  // Elimină un prieten
-  Future<void> removeFriend(String currentUserId, String friendId) async {
-    final batch = _db.batch();
-    batch.delete(_db.collection('users').doc(currentUserId).collection('friends').doc(friendId));
-    batch.delete(_db.collection('users').doc(friendId).collection('friends').doc(currentUserId));
-    await batch.commit();
-  }
-
-  // Stream cu cererile primite (pending)
   Stream<List<FriendRequestModel>> getIncomingRequests(String userId) {
     return _db
         .collection('friend_requests')
@@ -115,7 +77,6 @@ class FriendsRepository {
         .map((snap) => snap.docs.map(FriendRequestModel.fromDoc).toList());
   }
 
-  // Stream cu lista de prieteni (ca UserModel)
   Stream<List<UserModel>> getFriends(String userId) {
     return _db
         .collection('users')
@@ -142,10 +103,10 @@ class FriendsRepository {
         });
   }
 
-  // Returnează starea relației dintre doi utilizatori
-  // 'none' | 'pending_sent' | 'pending_received' | 'friends'
-  Future<String> getRelationshipStatus(String currentUserId, String otherUserId) async {
-    // Verifică prietenie
+  Future<String> getRelationshipStatus(
+    String currentUserId,
+    String otherUserId,
+  ) async {
     final friendDoc = await _db
         .collection('users')
         .doc(currentUserId)
@@ -154,7 +115,6 @@ class FriendsRepository {
         .get();
     if (friendDoc.exists) return 'friends';
 
-    // Verifică cerere trimisă
     final sent = await _db
         .collection('friend_requests')
         .where('fromUserId', isEqualTo: currentUserId)
@@ -163,7 +123,6 @@ class FriendsRepository {
         .get();
     if (sent.docs.isNotEmpty) return 'pending_sent';
 
-    // Verifică cerere primită
     final received = await _db
         .collection('friend_requests')
         .where('fromUserId', isEqualTo: otherUserId)
@@ -175,7 +134,6 @@ class FriendsRepository {
     return 'none';
   }
 
-  // Obține un utilizator după ID
   Future<UserModel?> fetchUser(String userId) async {
     try {
       final doc = await _db.collection('users').doc(userId).get();
@@ -193,8 +151,10 @@ class FriendsRepository {
     }
   }
 
-  // Salvează displayNameLower la înregistrare/update (util pentru search)
-  Future<void> ensureDisplayNameIndex(String userId, String displayName) async {
+  Future<void> ensureDisplayNameIndex(
+    String userId,
+    String displayName,
+  ) async {
     await _db.collection('users').doc(userId).update({
       'displayNameLower': displayName.toLowerCase(),
     });

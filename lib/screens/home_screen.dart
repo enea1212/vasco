@@ -1,17 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/helpers/mapbox_helper.dart';
+import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/screens/profile_page.dart';
 import 'package:vasco/screens/friends_page.dart';
+import 'package:vasco/screens/conversations_screen.dart';
 import 'package:vasco/services/photo_service.dart';
 import 'package:vasco/services/geocoding_service.dart';
+import 'package:vasco/widgets/comments_sheet.dart';
 import '../widget/custom_bottom_nav_bar.dart';
 import 'package:vasco/screens/map_page.dart';
 
@@ -31,11 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const _FeedPage(),       // 0 - Home
-      const FriendsPage(),     // 1 - Friends
-      Container(),             // 2 - (neutilizat)
-      MapPage(),               // 3 - Map
-      const ProfileScreen(),   // 4 - Profile
+      const _FeedPage(),            // 0 - Home
+      const FriendsPage(),          // 1 - Friends
+      const ConversationsScreen(),  // 2 - Mesaje
+      Container(),                  // 3 - Share (buton central)
+      MapPage(),                    // 4 - Map
+      const ProfileScreen(),        // 5 - Profile
     ];
   }
 
@@ -43,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      appBar: AppBar(
+      appBar: (_selectedIndex == 5 || _selectedIndex == 0) ? null : AppBar(
         title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -78,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
-          if (index == 2) {
+          if (index == 3) {
             _shareLocation(context);
           } else {
             setState(() => _selectedIndex = index);
@@ -242,125 +247,274 @@ class _HomeScreenState extends State<HomeScreen> {
 
 }
 
-// ─── Feed real din Firestore ──────────────────────────────────────────────────
+// ─── Feed Instagram-style ─────────────────────────────────────────────────────
 
 class _FeedPage extends StatelessWidget {
   const _FeedPage();
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = context.watch<UserProvider>().user;
+    final friends = context.watch<FriendsProvider>().friends;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('location_photos')
           .orderBy('createdAt', descending: true)
-          .limit(30)
+          .limit(40)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
         final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72, height: 72,
-                  decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(20)),
-                  child: const Icon(Icons.photo_library_outlined, size: 36, color: Color(0xFF9CA3AF)),
+
+        return CustomScrollView(
+          slivers: [
+            // ── AppBar flotant Instagram-style ─────────────────────────────
+            SliverAppBar(
+              floating: true,
+              snap: true,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              titleSpacing: 16,
+              title: const Text(
+                'Vasco',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                  letterSpacing: -0.5,
                 ),
-                const SizedBox(height: 16),
-                const Text('Nicio postare încă', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Color(0xFF374151))),
-                const SizedBox(height: 4),
-                const Text('Apasă butonul central pentru a posta prima locație.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.favorite_border_rounded,
+                      color: Color(0xFF111827), size: 26),
+                  onPressed: () {},
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send_outlined,
+                      color: Color(0xFF111827), size: 24),
+                  onPressed: () {},
+                ),
+                const SizedBox(width: 4),
               ],
+              bottom: const PreferredSize(
+                preferredSize: Size.fromHeight(0.5),
+                child: Divider(height: 0.5, thickness: 0.5),
+              ),
             ),
-          );
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.only(top: 0, bottom: 120),
-          itemCount: docs.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) return _storiesRow();
-            final data = docs[index - 1].data() as Map<String, dynamic>;
-            return _PostCard(data: data);
-          },
+
+            // ── Stories ────────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: _StoriesRow(currentUser: currentUser, friends: friends),
+            ),
+
+            const SliverToBoxAdapter(
+              child: Divider(height: 0.5, thickness: 0.5),
+            ),
+
+            // ── Posts sau empty state ───────────────────────────────────────
+            if (snapshot.connectionState == ConnectionState.waiting && docs.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF4F46E5),
+                    strokeWidth: 2,
+                  ),
+                ),
+              )
+            else if (docs.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72, height: 72,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.photo_camera_outlined,
+                            size: 36, color: Color(0xFF9CA3AF)),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Nicio postare încă',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Color(0xFF374151))),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Apasă butonul central pentru a posta.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) {
+                    final doc = docs[i];
+                    final data = doc.data() as Map<String, dynamic>;
+                    return _PostCard(docId: doc.id, data: data);
+                  },
+                  childCount: docs.length,
+                ),
+              ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
         );
       },
     );
   }
+}
 
-  Widget _storiesRow() {
-    const stories = [
-      {'name': 'Tu',     'c1': Color(0xFF4F46E5), 'c2': Color(0xFF7C3AED), 'isMe': true},
-      {'name': 'Alex',   'c1': Color(0xFF667EEA), 'c2': Color(0xFF764BA2)},
-      {'name': 'Maria',  'c1': Color(0xFFF093FB), 'c2': Color(0xFFF5576C)},
-      {'name': 'Andrei', 'c1': Color(0xFF4FACFE), 'c2': Color(0xFF00F2FE)},
-      {'name': 'Elena',  'c1': Color(0xFF43E97B), 'c2': Color(0xFF38F9D7)},
-      {'name': 'Radu',   'c1': Color(0xFFFA709A), 'c2': Color(0xFFFEE140)},
-    ];
+// ─── Stories row ──────────────────────────────────────────────────────────────
+
+class _StoriesRow extends StatelessWidget {
+  final dynamic currentUser;
+  final List friends;
+
+  const _StoriesRow({required this.currentUser, required this.friends});
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      height: 100,
+      height: 104,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        itemCount: stories.length,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        itemCount: 1 + friends.length,
         itemBuilder: (_, i) {
-          final s = stories[i];
-          final c1 = s['c1']! as Color;
-          final c2 = s['c2']! as Color;
-          final isMe = s['isMe'] == true;
-          return Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 58, height: 58,
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(gradient: LinearGradient(colors: [c1, c2]), shape: BoxShape.circle),
-                  child: Container(
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    padding: const EdgeInsets.all(2),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [c1, c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        shape: BoxShape.circle,
-                      ),
-                      child: isMe
-                          ? const Icon(Icons.add_rounded, color: Colors.white, size: 24)
-                          : Center(child: Text((s['name']! as String)[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 19))),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(s['name']! as String, style: const TextStyle(fontSize: 11, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
-              ],
-            ),
+          if (i == 0) {
+            // Story-ul utilizatorului curent
+            final photo = currentUser?.photoUrl as String?;
+            return _StoryItem(
+              name: 'Tu',
+              photoUrl: photo,
+              isMe: true,
+            );
+          }
+          final friend = friends[i - 1];
+          return _StoryItem(
+            name: (friend.displayName as String? ?? 'Prieten')
+                .split(' ')
+                .first,
+            photoUrl: friend.photoUrl as String?,
           );
         },
       ),
     );
   }
+}
 
+class _StoryItem extends StatelessWidget {
+  final String name;
+  final String? photoUrl;
+  final bool isMe;
+
+  const _StoryItem({required this.name, this.photoUrl, this.isMe = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF09433), Color(0xFFE6683C),
+                             Color(0xFFDC2743), Color(0xFFCC2366),
+                             Color(0xFFBC1888)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: CircleAvatar(
+                    radius: 26,
+                    backgroundImage:
+                        photoUrl != null ? NetworkImage(photoUrl!) : null,
+                    backgroundColor: const Color(0xFFF3F4F6),
+                    child: photoUrl == null
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 20,
+                              color: Color(0xFF6B7280),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              if (isMe)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF4F46E5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add_rounded,
+                        color: Colors.white, size: 14),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF111827),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Card individual cu geocoding lazy + cache ────────────────────────────────
 
 class _PostCard extends StatefulWidget {
+  final String docId;
   final Map<String, dynamic> data;
-  const _PostCard({required this.data});
+
+  const _PostCard({required this.docId, required this.data});
 
   @override
   State<_PostCard> createState() => _PostCardState();
 }
 
 class _PostCardState extends State<_PostCard> {
-  // Cache static partajat între toate cardurile din sesiune
   static final Map<String, String> _geoCache = {};
-
   String? _locationLabel;
+  bool _isLiking = false;
 
   @override
   void initState() {
@@ -370,161 +524,285 @@ class _PostCardState extends State<_PostCard> {
 
   Future<void> _resolveLocation() async {
     final d = widget.data;
-
-    // 1. Deja avem locația completă salvată în document
     final stored = d['locationName'] as String? ?? d['countryName'] as String?;
     if (stored != null && stored.isNotEmpty) {
       if (mounted) setState(() => _locationLabel = stored);
       return;
     }
-
-    // 2. Geocodăm din lat/lng
-    final lat = (d['latitude']  as num?)?.toDouble();
+    final lat = (d['latitude'] as num?)?.toDouble();
     final lng = (d['longitude'] as num?)?.toDouble();
     if (lat == null || lng == null) {
       if (mounted) setState(() => _locationLabel = 'Locație');
       return;
     }
-
     final key = '${lat.toStringAsFixed(3)}_${lng.toStringAsFixed(3)}';
     if (_geoCache.containsKey(key)) {
       if (mounted) setState(() => _locationLabel = _geoCache[key]);
       return;
     }
-
     final result = await GeocodingService.reverseGeocode(lat, lng);
-    final label  = result ?? 'Locație';
+    final label = result ?? 'Locație';
     _geoCache[key] = label;
     if (mounted) setState(() => _locationLabel = label);
+  }
+
+  Future<void> _toggleLike(String currentUserId) async {
+    if (_isLiking) return;
+    setState(() => _isLiking = true);
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('toggleLike')
+          .call({'postId': widget.docId, 'collection': 'location_photos'});
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLiking = false);
+    }
+  }
+
+  void _openComments(BuildContext context, String currentUserId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CommentsSheet(
+        postId: widget.docId,
+        collection: 'location_photos',
+        currentUserId: currentUserId,
+      ),
+    );
   }
 
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
     final diff = DateTime.now().difference(ts.toDate());
     if (diff.inMinutes < 60) return 'acum ${diff.inMinutes} min';
-    if (diff.inHours  < 24)  return 'acum ${diff.inHours}h';
-    if (diff.inDays   < 7)   return 'acum ${diff.inDays}z';
+    if (diff.inHours < 24) return 'acum ${diff.inHours}h';
+    if (diff.inDays < 7) return 'acum ${diff.inDays}z';
     return 'acum ${diff.inDays ~/ 7} săpt';
   }
 
   @override
   Widget build(BuildContext context) {
-    final d            = widget.data;
-    final imageUrl     = d['imageUrl']     as String? ?? '';
-    final displayName  = d['displayName']  as String? ?? 'Utilizator';
+    final d = widget.data;
+    final imageUrl = d['imageUrl'] as String? ?? '';
+    final displayName = d['displayName'] as String? ?? 'Utilizator';
     final userPhotoUrl = d['userPhotoUrl'] as String? ?? '';
-    final createdAt    = d['createdAt']    as Timestamp?;
+    final createdAt = d['createdAt'] as Timestamp?;
+    final locationLabel = _locationLabel;
+    final timeLabel = _timeAgo(createdAt);
+    final currentUserId = context.watch<UserProvider>().user?.id ?? '';
 
-    final locationLabel = _locationLabel ?? '…';
-    final timeLabel     = _timeAgo(createdAt);
+    if (currentUserId.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundImage: userPhotoUrl.isNotEmpty ? NetworkImage(userPhotoUrl) : null,
-                  backgroundColor: const Color(0xFFF3F4F6),
-                  child: userPhotoUrl.isEmpty
-                      ? const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF))
-                      : null,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Header ────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              // Avatar cu border gradient
+              Container(
+                width: 38,
+                height: 38,
+                padding: const EdgeInsets.all(1.5),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF09433), Color(0xFFDC2743),
+                             Color(0xFFBC1888)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFF4F46E5)),
-                          const SizedBox(width: 2),
-                          Expanded(
-                            child: Text('$locationLabel · $timeLabel',
-                                style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                        ],
-                      ),
-                    ],
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(1.5),
+                  child: CircleAvatar(
+                    radius: 15,
+                    backgroundImage: userPhotoUrl.isNotEmpty
+                        ? NetworkImage(userPhotoUrl)
+                        : null,
+                    backgroundColor: const Color(0xFFF3F4F6),
+                    child: userPhotoUrl.isEmpty
+                        ? const Icon(Icons.person_rounded,
+                            color: Color(0xFF9CA3AF), size: 16)
+                        : null,
                   ),
                 ),
-                const Icon(Icons.more_horiz_rounded, color: Color(0xFFD1D5DB)),
-              ],
-            ),
-          ),
-          // ── Imagine ───────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                children: [
-                  imageUrl.isNotEmpty
-                      ? Image.network(imageUrl,
-                          width: double.infinity, height: 280, fit: BoxFit.cover,
-                          errorBuilder: (_, e, s) => _placeholder())
-                      : _placeholder(),
-                  Positioned(
-                    bottom: 12, left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                        color: Color(0xFF111827),
                       ),
+                    ),
+                    if (locationLabel != null)
+                      Text(
+                        locationLabel,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6B7280),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.more_horiz_rounded,
+                  color: Color(0xFF111827), size: 22),
+            ],
+          ),
+        ),
+
+        // ── Imagine full-width ─────────────────────────────────────────────
+        imageUrl.isNotEmpty
+            ? Image.network(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, e, stack) => _placeholder(),
+              )
+            : _placeholder(),
+
+        // ── Acțiuni + statistici ───────────────────────────────────────────
+        StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('location_photos')
+              .doc(widget.docId)
+              .collection('likes')
+              .doc(currentUserId)
+              .snapshots(),
+          builder: (_, likeSnap) {
+            final isLiked = likeSnap.data?.exists ?? false;
+            return StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('location_photos')
+                  .doc(widget.docId)
+                  .snapshots(),
+              builder: (_, postSnap) {
+                final pd =
+                    postSnap.data?.data() as Map<String, dynamic>?;
+                final likesCount = pd?['likesCount'] ?? 0;
+                final commentsCount = pd?['commentsCount'] ?? 0;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Butoane acțiuni
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.location_on_rounded, size: 12, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(locationLabel,
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                          GestureDetector(
+                            onTap: () => _toggleLike(currentUserId),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              child: Icon(
+                                isLiked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                key: ValueKey(isLiked),
+                                size: 28,
+                                color: isLiked
+                                    ? const Color(0xFFEF4444)
+                                    : const Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          GestureDetector(
+                            onTap: () =>
+                                _openComments(context, currentUserId),
+                            child: const Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              size: 26,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          const Icon(Icons.send_outlined,
+                              size: 25, color: Color(0xFF111827)),
+                          const Spacer(),
+                          const Icon(Icons.bookmark_border_rounded,
+                              size: 26, color: Color(0xFF111827)),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // ── Acțiuni ───────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-            child: Row(
-              children: [
-                _btn(Icons.favorite_border_rounded),
-                const SizedBox(width: 18),
-                _btn(Icons.chat_bubble_outline_rounded),
-                const SizedBox(width: 18),
-                _btn(Icons.send_rounded),
-                const Spacer(),
-                _btn(Icons.bookmark_border_rounded),
-              ],
-            ),
-          ),
-        ],
-      ),
+
+                    // Număr aprecieri
+                    if (likesCount > 0)
+                      Padding(
+                        padding:
+                            const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        child: Text(
+                          '$likesCount aprecieri',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+
+                    // Comentarii count
+                    if (commentsCount > 0)
+                      GestureDetector(
+                        onTap: () =>
+                            _openComments(context, currentUserId),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(12, 3, 12, 0),
+                          child: Text(
+                            'Vizualizați toate cele $commentsCount comentarii',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Timestamp
+                    Padding(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                      child: Text(
+                        timeLabel,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+
+        const Divider(height: 0.5, thickness: 0.5),
+      ],
     );
   }
 
   Widget _placeholder() => Container(
-      height: 280,
+      height: 300,
       color: const Color(0xFFF3F4F6),
-      child: const Center(child: Icon(Icons.image_rounded, size: 52, color: Color(0xFF9CA3AF))));
-
-  Widget _btn(IconData icon) => Icon(icon, size: 22, color: const Color(0xFF374151));
+      child: const Center(
+          child: Icon(Icons.image_rounded,
+              size: 52, color: Color(0xFF9CA3AF))));
 }

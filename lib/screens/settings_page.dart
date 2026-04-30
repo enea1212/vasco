@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/repository/edit_profile.dart';
+import 'package:vasco/features/auth/screens/login_screen.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -213,9 +214,17 @@ class SettingsPage extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(ctx);
-                        authService.signOut();
+                        await authService.signOut();
+                        if (ctx.mounted) {
+                          Navigator.of(ctx, rootNavigator: true)
+                              .pushAndRemoveUntil(
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                            (_) => false,
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),

@@ -43,13 +43,28 @@ class CustomBottomNavBar extends StatelessWidget {
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildNavItem(Icons.home_rounded, 'Home', 0),
-                  _buildNavItem(Icons.people_rounded, 'Prieteni', 1, hasBadge: true),
+                  // Stânga — 3 iteme, fiecare cu spațiu egal
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildNavItem(Icons.home_rounded, 'Home', 0)),
+                        Expanded(child: _buildNavItem(Icons.people_rounded, 'Prieteni', 1, hasBadge: true)),
+                        Expanded(child: _buildNavItem(Icons.chat_bubble_rounded, 'Mesaje', 2)),
+                      ],
+                    ),
+                  ),
+                  // Spațiu rezervat pentru butonul central flotant
                   const SizedBox(width: 64),
-                  _buildNavItem(Icons.map_rounded, 'Mapa', 3),
-                  _buildNavItem(Icons.person_rounded, 'Profil', 4, hasBadge: true),
+                  // Dreapta — 2 iteme, fiecare cu spațiu egal
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildNavItem(Icons.map_rounded, 'Mapa', 4)),
+                        Expanded(child: _buildNavItem(Icons.person_rounded, 'Profil', 5, hasBadge: true)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -57,7 +72,7 @@ class CustomBottomNavBar extends StatelessWidget {
           Positioned(
             top: 2,
             child: GestureDetector(
-              onTap: () => onTap(2),
+              onTap: () => onTap(3),
               child: Container(
                 width: 66,
                 height: 66,
@@ -98,21 +113,24 @@ class CustomBottomNavBar extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               clipBehavior: Clip.none,
+              alignment: Alignment.center,
               children: [
                 Icon(
                   icon,
                   color: isSelected ? Colors.white : Colors.white38,
-                  size: 24,
+                  size: 22,
                 ),
                 if (hasBadge)
                   Positioned(
@@ -138,8 +156,9 @@ class CustomBottomNavBar extends StatelessWidget {
               label,
               style: TextStyle(
                 color: isSelected ? Colors.white : Colors.white38,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontSize: 9,
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
