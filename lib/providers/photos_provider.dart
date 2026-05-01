@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class PhotosProvider with ChangeNotifier {
   List<QueryDocumentSnapshot> _photoDocs = [];
@@ -13,6 +14,25 @@ class PhotosProvider with ChangeNotifier {
   int get totalLikes => _totalLikes;
 
   StreamSubscription<QuerySnapshot>? _photosSubscription;
+
+Future<void> hitLike(String photoId) async {
+  try {
+    // Apelăm funcția toggleLike definită în index.js
+    await FirebaseFunctions.instance
+        .httpsCallable('toggleLike')
+        .call({
+      "postId": photoId,
+      "collection": "location_photos", 
+    });
+    
+    // Nu este nevoie de notifyListeners() aici, deoarece listenToUserPhotos 
+    // va detecta automat schimbarea de pe server și va face update la UI.
+  } catch (e) {
+    print('Eroare la toggleLike: $e');
+  }
+}
+
+
 
   void listenToUserPhotos(String userId) {
     // Evită crearea de mai mulți listeners pentru același user

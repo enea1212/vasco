@@ -10,8 +10,25 @@ import 'package:vasco/repository/edit_profile.dart';
 import 'package:vasco/screens/settings_page.dart';
 import 'package:vasco/widgets/post_story_viewer.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+@override
+  void initState() {
+    super.initState();
+    // Declanșăm ascultarea pozelor pentru utilizatorul curent
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = context.read<UserProvider>().user?.id;
+      if (userId != null) {
+        context.read<PhotosProvider>().listenToUserPhotos(userId);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +38,7 @@ class ProfileScreen extends StatelessWidget {
         final friends = friendsProvider.friends;
         final photoDocs = photosProvider.photoDocs;
         final photosCount = photosProvider.photosCount;
-        final totalLikes = photosProvider.totalLikes;
+        final totalLikes = photosProvider.totalLikes; // Această valoare se va updata automat
 
         if (user == null) {
           return const Center(child: CircularProgressIndicator());
