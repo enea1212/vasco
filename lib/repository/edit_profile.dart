@@ -25,14 +25,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadCurrentData();
   }
 
-void _loadCurrentData() {
-  // Folosim UserProvider în loc de AuthService pentru că UserProvider conține datele din Firestore (inclusiv bio)
-  final user = context.read<UserProvider>().user; 
-  if (user != null) {
-    _nameController.text = user.displayName ?? "";
-    _bioController.text = user.biography ?? ""; // Acum va prelua valoarea corectă
+  void _loadCurrentData() {
+    // Folosim UserProvider pentru a obține datele actuale din Firestore
+    final user = context.read<UserProvider>().user; 
+    if (user != null) {
+      _nameController.text = user.displayName ?? "";
+      _bioController.text = user.biography ?? "";
+    }
   }
-}
 
   Future<void> _pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -40,34 +40,51 @@ void _loadCurrentData() {
       setState(() => _imageFile = File(pickedFile.path));
     }
   }
-Future<void> _updateProfile() async {
-  setState(() => _isLoading = true);
-  try {
-    // Citim user-ul tot din UserProvider pentru a avea acces la ID și photoUrl-ul actual
-    final user = context.read<UserProvider>().user;
-    final userRepo = context.read<UserRepository>();
-    String? imageUrl = user?.photoUrl;
 
-    if (_imageFile != null) {
-      final ref = FirebaseStorage.instance.ref().child('avatars/${user!.id}.jpg');
-      await ref.putFile(_imageFile!);
-      imageUrl = await ref.getDownloadURL();
+  Future<void> _updateProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = context.read<UserProvider>().user;
+      final userRepo = context.read<UserRepository>();
+      String? imageUrl = user?.photoUrl;
+
+      if (_imageFile != null) {
+        final ref = FirebaseStorage.instance.ref().child('avatars/${user!.id}.jpg');
+        await ref.putFile(_imageFile!);
+        imageUrl = await ref.getDownloadURL();
+      }
+
+      // Actualizează în Firestore
+      await userRepo.updateUserProfile(user!.id, {
+        'displayName': _nameController.text,
+        'bio': _bioController.text,
+        'photoUrl': imageUrl,
+      });
+
+      if (mounted) {
+        // Așteaptă puțin pentru ca stream-ul să se actualizeze
+        await Future.delayed(const Duration(milliseconds: 500));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Eroare: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-
-    await userRepo.updateUserProfile(user!.id, {
-      'displayName': _nameController.text,
-      'bio': _bioController.text, // Se va salva valoarea din controller
-      'photoUrl': imageUrl,
-    });
-
-    if (mounted) Navigator.pop(context);
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-  } finally {
-    setState(() => _isLoading = false);
   }
-}
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +92,7 @@ Future<void> _updateProfile() async {
       appBar: AppBar(title: const Text("Editează Profil")),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : Padding(
+        : SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
@@ -87,10 +104,28 @@ Future<void> _updateProfile() async {
                     child: _imageFile == null ? const Icon(Icons.camera_alt) : null,
                   ),
                 ),
-                TextField(controller: _nameController, decoration: const InputDecoration(labelText: "Nume")),
-                TextField(controller: _bioController, decoration: const InputDecoration(labelText: "Bio")),
                 const SizedBox(height: 20),
-                ElevatedButton(onPressed: _updateProfile, child: const Text("Salvează"))
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: "Nume",
+                    hintText: "Introdu-ți numele",
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _bioController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: "Bio",
+                    hintText: "Spune-ne ceva despre tine",
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _updateProfile,
+                  child: const Text("Salvează"),
+                ),
               ],
             ),
           ),

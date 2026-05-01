@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'package:vasco/providers/auth_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/providers/photos_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/user_repository.dart';
 import 'package:vasco/repository/friends_repository.dart';
@@ -30,6 +31,7 @@ Future<void> main() async {
           update: (context, authService, previous) => AuthViewModel(authService),
         ),
         ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
+        ChangeNotifierProvider<PhotosProvider>(create: (_) => PhotosProvider()),
         Provider<FriendsRepository>(create: (_) => FriendsRepository()),
         ChangeNotifierProvider<FriendsProvider>(create: (_) => FriendsProvider()),
         Provider<MessagingRepository>(create: (_) => MessagingRepository()),
@@ -153,6 +155,7 @@ class MyApp extends StatelessWidget {
             final String uid = snapshot.data!.uid;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.read<UserProvider>().listenToUser(uid);
+              context.read<PhotosProvider>().listenToUserPhotos(uid);
               context.read<FriendsProvider>().init(uid);
               context.read<MessagingProvider>().init(uid);
             });

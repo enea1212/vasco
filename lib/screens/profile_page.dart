@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:vasco/models/user_model.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/providers/photos_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/edit_profile.dart';
 import 'package:vasco/screens/settings_page.dart';
@@ -14,29 +15,17 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<UserProvider>().user;
-    final friends = context.watch<FriendsProvider>().friends;
+    return Consumer3<UserProvider, FriendsProvider, PhotosProvider>(
+      builder: (context, userProvider, friendsProvider, photosProvider, _) {
+        final user = userProvider.user;
+        final friends = friendsProvider.friends;
+        final photoDocs = photosProvider.photoDocs;
+        final photosCount = photosProvider.photosCount;
+        final totalLikes = photosProvider.totalLikes;
 
-    if (user == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('location_photos')
-          .where('userId', isEqualTo: user.id)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, photosSnap) {
-        final photoDocs = photosSnap.data?.docs ?? [];
-        final photosCount = photoDocs.length;
-        final totalLikes = photoDocs.fold<int>(
-          0,
-          (acc, doc) {
-            final d = doc.data() as Map<String, dynamic>;
-            return acc + ((d['likesCount'] as num?)?.toInt() ?? 0);
-          },
-        );
+        if (user == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
         return CustomScrollView(
           slivers: [
@@ -65,7 +54,10 @@ class ProfileScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                         builder: (_) => const EditProfileScreen()),
-                  ),
+                  ).then((_) {
+                    // Forțează refresh la întoarcere
+                    context.read<UserProvider>();
+                  }),
                   icon: const Icon(Icons.edit_rounded, size: 16),
                   label: const Text('Editează profilul'),
                   style: OutlinedButton.styleFrom(
