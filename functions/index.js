@@ -249,3 +249,88 @@ exports.deleteComment = onCall(async (request) => {
   await batch.commit();
   return { success: true };
 });
+
+
+
+// ─── TINDER LOGIC  ─────────────────────────────────────────────────────────────────
+const geofire = require("geofire-common");
+
+exports.getRecommendations = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      'unauthenticated',
+      'Trebuie să fii logat pentru a vedea recomandări.'
+    );
+  }
+  const uid = request.auth.uid;
+
+  // 1. Extragem datele utilizatorului
+  const userSnap = await db.collection('users').doc(uid).get();
+  const userData = userSnap.data();
+
+  if (!userData || !userData.location) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Nu ți-am putut găsi locația.'
+    );
+  }
+
+  // --- COD NOU: Extragem istoricul de Swipe-uri ---
+  // Aducem toate documentele unde utilizatorul curent a făcut o acțiune
+  const swipesSnap = await db.collection('swipes').where('fromUserId', '==', uid).get();
+  
+  // Folosim un Set pentru performanță foarte rapidă la căutare
+  const interactedUserIds = new Set();
+  swipesSnap.forEach(doc => {
+    interactedUserIds.add(doc.data().toUserId); // Adăugăm ID-ul persoanei pe care am dat swipe
+  });
+  // -----------------------------------------------
+
+  const center = [userData.location.lat, userData.location.lng];
+  const radiusInM = 50 * 1000; // 50 km
+  const bounds = geofire.geohashQueryBounds(center, radiusInM);
+  const promises = [];
+
+  for (const b of bounds) {
+    const q = db.collection('users')
+      .orderBy('location.geohash')
+      .startAt(b[0])
+      .endAt(b[1]);
+    promises.push(q.get());
+  }
+
+  const snapshots = await Promise.all(promises);
+  let recommendedUsers = [];
+
+  for (const snap of snapshots) {
+    for (const doc of snap.docs) {
+      const profileData = doc.data();
+
+      // Excludem utilizatorul curent
+      if (doc.id === uid) continue;
+
+      // --- COD NOU: Excludem persoanele cu care am interacționat deja ---
+      if (interactedUserIds.has(doc.id)) continue;
+      // ------------------------------------------------------------------
+
+      if (profileData.location && profileData.location.lat && profileData.location.lng) {
+        const lat = profileData.location.lat;
+        const lng = profileData.location.lng;
+        const distanceInKm = geofire.distanceBetween([lat, lng], center);
+        const distanceInM = distanceInKm * 1000;
+
+        if (distanceInM <= radiusInM) {
+          recommendedUsers.push({
+            id: doc.id,
+            displayName: profileData.displayName,
+            photoUrl: profileData.photoUrl,
+            bio: profileData.bio,
+            distanceInKm: Math.round(distanceInKm),
+          });
+        }
+      }
+    }
+  }
+
+  return recommendedUsers.slice(0, 20);
+});

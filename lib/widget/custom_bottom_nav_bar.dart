@@ -46,6 +46,7 @@ class CustomBottomNavBar extends StatelessWidget {
                 children: [
                   // Stânga — 3 iteme, fiecare cu spațiu egal
                   Expanded(
+                    flex: 4, // Folosim flex pentru a oferi mai mult spațiu celor 3 iteme
                     child: Row(
                       children: [
                         Expanded(child: _buildNavItem(Icons.home_rounded, 'Home', 0)),
@@ -56,12 +57,15 @@ class CustomBottomNavBar extends StatelessWidget {
                   ),
                   // Spațiu rezervat pentru butonul central flotant
                   const SizedBox(width: 64),
-                  // Dreapta — 2 iteme, fiecare cu spațiu egal
+                  // Dreapta — ACUM 3 iteme, fiecare cu spațiu egal
                   Expanded(
+                    flex: 4, // Flex egal cu partea stângă pentru simetrie
                     child: Row(
                       children: [
                         Expanded(child: _buildNavItem(Icons.map_rounded, 'Mapa', 4)),
                         Expanded(child: _buildNavItem(Icons.person_rounded, 'Profil', 5, hasBadge: true)),
+                        // --- ADAUGAT NOU: Butonul de Swipe/Dating la Indexul 6 ---
+                        Expanded(child: _buildNavItem(Icons.local_fire_department_rounded, 'Match', 6)),
                       ],
                     ),
                   ),
@@ -167,3 +171,4 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 }
+

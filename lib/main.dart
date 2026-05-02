@@ -15,6 +15,7 @@ import 'package:vasco/screens/home_screen.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:vasco/models/user_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -136,8 +137,8 @@ class MyApp extends StatelessWidget {
           space: 1,
         ),
       ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
+      home: StreamBuilder<UserModel?>(
+        stream: context.read<AuthService>().authStateChanges(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
@@ -152,7 +153,7 @@ class MyApp extends StatelessWidget {
           }
 
           if (snapshot.hasData && snapshot.data != null) {
-            final String uid = snapshot.data!.uid;
+            final String uid = snapshot.data!.id;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.read<UserProvider>().listenToUser(uid);
               context.read<PhotosProvider>().listenToUserPhotos(uid);
