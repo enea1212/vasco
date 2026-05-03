@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _bioController = TextEditingController();
   File? _imageFile;
   bool _isLoading = false;
+  DateTime? _selectedBirthDate;
 
   @override
   void initState() {
@@ -26,11 +28,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _loadCurrentData() {
-    // Folosim UserProvider pentru a obține datele actuale din Firestore
-    final user = context.read<UserProvider>().user; 
+    final user = context.read<UserProvider>().user;
     if (user != null) {
       _nameController.text = user.displayName ?? "";
       _bioController.text = user.biography ?? "";
+      _selectedBirthDate = user.birthDate;
+    }
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedBirthDate ?? DateTime(now.year - 20),
+      firstDate: DateTime(now.year - 80),
+      lastDate: DateTime(now.year - 18),
+      helpText: 'Selectează data nașterii',
+    );
+    if (picked != null) {
+      setState(() => _selectedBirthDate = picked);
     }
   }
 
@@ -59,6 +75,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'displayName': _nameController.text,
         'bio': _bioController.text,
         'photoUrl': imageUrl,
+        if (_selectedBirthDate != null)
+          'birthDate': Timestamp.fromDate(_selectedBirthDate!),
       });
 
       if (mounted) {
@@ -120,6 +138,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     labelText: "Bio",
                     hintText: "Spune-ne ceva despre tine",
                   ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.cake_outlined),
+                  title: const Text('Data nașterii'),
+                  subtitle: Text(
+                    _selectedBirthDate != null
+                        ? '${_selectedBirthDate!.day}.${_selectedBirthDate!.month}.${_selectedBirthDate!.year}'
+                        : 'Neselectată',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _pickBirthDate,
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(

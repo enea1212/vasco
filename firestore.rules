@@ -65,15 +65,11 @@ service cloud.firestore {
       }
     }
 
-    // Swipes: userul poate crea/citi doar propriile swipe-uri
+    // Swipes: scrise doar de Cloud Functions (admin SDK), citite doar de proprietar
     match /swipes/{swipeId} {
       allow read: if request.auth != null &&
                   resource.data.fromUserId == request.auth.uid;
-      allow create: if request.auth != null &&
-                    request.resource.data.fromUserId == request.auth.uid &&
-                    request.resource.data.toUserId is string &&
-                    request.resource.data.isLike is bool;
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     // Matches: doar participanții pot citi, scrierile sunt gestionate de Cloud Functions

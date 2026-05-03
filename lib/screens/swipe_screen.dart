@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/tinder_card/tinder_card.dart';
+import 'package:vasco/tinder_card/match_dialog.dart';
 import 'package:vasco/tinder_services/tinder_location_service.dart';
 
 class SwipeScreen extends StatefulWidget {
@@ -22,6 +24,12 @@ class _SwipeScreenState extends State<SwipeScreen> {
     _updateLocationThenLoad();
   }
 
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _updateLocationThenLoad() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -30,66 +38,82 @@ class _SwipeScreenState extends State<SwipeScreen> {
     _loadRecommendations();
   }
 
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadRecommendations() async {
     setState(() => isLoading = true);
     try {
-      final HttpsCallable callable =
-          FirebaseFunctions.instance.httpsCallable('getRecommendations');
+      final callable = FirebaseFunctions.instance.httpsCallable('getRecommendations');
       final results = await callable.call();
-
       final List<dynamic> data = results.data;
       if (!mounted) return;
       setState(() {
-        recommendations =
-            data.map((e) => Map<String, dynamic>.from(e)).toList();
+        recommendations = data.map((e) => Map<String, dynamic>.from(e)).toList();
         isLoading = false;
       });
     } catch (e) {
-      debugPrint("Eroare la încărcarea recomandărilor: $e");
+      debugPrint('Eroare la încărcarea recomandărilor: $e');
       if (!mounted) return;
       setState(() => isLoading = false);
     }
   }
 
-  bool _onSwipe(
-    int? previousIndex,
-    int? currentIndex,
-    CardSwiperDirection direction,
-  ) {
+  bool _onSwipe(int? previousIndex, int? currentIndex, CardSwiperDirection direction) {
     if (previousIndex != null) {
       _handleSwipe(previousIndex, direction);
     }
     return true;
   }
-  Future<void> _handleSwipe(
-    int previousIndex,
-    CardSwiperDirection direction,
-  ) async {
+
+  Future<void> _handleSwipe(int previousIndex, CardSwiperDirection direction) async {
     final swipedProfile = recommendations[previousIndex];
     final myUserId = FirebaseAuth.instance.currentUser?.uid;
-
     if (myUserId == null) return;
 
-    bool isLike = direction == CardSwiperDirection.right;
+    final isLike = direction == CardSwiperDirection.right;
 
     try {
-      await FirebaseFirestore.instance.collection('swipes').add({
-        'fromUserId': myUserId,
+      final callable = FirebaseFunctions.instance.httpsCallable('recordSwipe');
+      final result = await callable.call({
         'toUserId': swipedProfile['id'],
         'isLike': isLike,
-        'timestamp': FieldValue.serverTimestamp(),
       });
 
-      debugPrint("Swipe salvat! $isLike pe ${swipedProfile['displayName']}");
+      final data = Map<String, dynamic>.from(result.data);
+
+      if (data['matched'] == true && mounted) {
+        final currentUser = context.read<UserProvider>().user;
+        _showMatchDialog(
+          myUserId: myUserId,
+          currentUserPhoto: currentUser?.photoUrl ?? '',
+          matchedUser: Map<String, dynamic>.from(data['matchedUser']),
+          conversationId: data['conversationId'],
+        );
+      }
     } catch (e) {
-      debugPrint("Eroare la salvarea swipe-ului: $e");
+      debugPrint('Eroare la salvarea swipe-ului: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Eroare swipe: $e')),
+        );
+      }
     }
+  }
+
+  void _showMatchDialog({
+    required String myUserId,
+    required String currentUserPhoto,
+    required Map<String, dynamic> matchedUser,
+    required String conversationId,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => MatchDialog(
+        currentUserId: myUserId,
+        currentUserPhoto: currentUserPhoto,
+        matchedUser: matchedUser,
+        conversationId: conversationId,
+      ),
+    );
   }
 
   @override
@@ -109,12 +133,17 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Nu am găsit persoane noi în zonă.'),
+                      const Icon(Icons.people_outline, size: 64, color: Color(0xFFD1D5DB)),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Nu am găsit persoane noi în zonă.',
+                        style: TextStyle(color: Color(0xFF6B7280), fontSize: 16),
+                      ),
                       const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: _loadRecommendations,
                         child: const Text('Caută din nou'),
-                      )
+                      ),
                     ],
                   ),
                 )
@@ -134,26 +163,29 @@ class _SwipeScreenState extends State<SwipeScreen> {
                           ),
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 20.0),
+                          padding: const EdgeInsets.symmetric(vertical: 20.0),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               FloatingActionButton(
+                                heroTag: 'swipe_left',
                                 onPressed: () => controller.swipeLeft(),
                                 backgroundColor: Colors.white,
                                 foregroundColor: Colors.red,
-                                child: const Icon(Icons.close, size: 30),
+                                elevation: 4,
+                                child: const Icon(Icons.close_rounded, size: 30),
                               ),
                               FloatingActionButton(
+                                heroTag: 'swipe_right',
                                 onPressed: () => controller.swipeRight(),
                                 backgroundColor: Colors.white,
                                 foregroundColor: Colors.green,
-                                child: const Icon(Icons.favorite, size: 30),
+                                elevation: 4,
+                                child: const Icon(Icons.favorite_rounded, size: 30),
                               ),
                             ],
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),

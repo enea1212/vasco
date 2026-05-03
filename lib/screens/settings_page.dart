@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/repository/edit_profile.dart';
+import 'package:vasco/screens/dating_preferences_screen.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -92,6 +93,17 @@ class SettingsPage extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _tile(
+            icon: Icons.favorite_outline_rounded,
+            iconBg: const Color(0xFFFFF1F2),
+            iconColor: const Color(0xFFE11D48),
+            label: 'Preferințe dating',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DatingPreferencesScreen()),
             ),
           ),
           const SizedBox(height: 28),

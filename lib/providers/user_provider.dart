@@ -35,8 +35,21 @@ class UserProvider with ChangeNotifier {
           displayName: data['displayName'] ?? _user?.displayName,
           photoUrl: data['photoUrl'] ?? _user?.photoUrl,
           biography: data['bio'] ?? _user?.biography ?? "",
-          sharedCountriesCount: (data['shared_countries'] as List?)?.length ?? 
+          sharedCountriesCount: (data['shared_countries'] as List?)?.length ??
                                 _user?.sharedCountriesCount ?? 0,
+          birthDate: data['birthDate'] != null
+              ? (data['birthDate'] as Timestamp).toDate()
+              : _user?.birthDate,
+          gender: data['gender'] ?? _user?.gender,
+          interests: data['interests'] != null
+              ? List<String>.from(data['interests'])
+              : _user?.interests,
+          preferences: data['preferences'] != null
+              ? Map<String, dynamic>.from(data['preferences'])
+              : _user?.preferences,
+          lastActive: data['lastActive'] != null
+              ? (data['lastActive'] as Timestamp).toDate()
+              : _user?.lastActive,
         );
         notifyListeners();
       }

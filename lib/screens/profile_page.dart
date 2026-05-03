@@ -7,6 +7,7 @@ import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/providers/photos_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/edit_profile.dart';
+import 'package:vasco/screens/dating_preferences_screen.dart';
 import 'package:vasco/screens/settings_page.dart';
 import 'package:vasco/widgets/post_story_viewer.dart';
 
@@ -62,29 +63,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // ── Buton editare ────────────────────────────────────────────────
+            // ── Butoane editare ──────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const EditProfileScreen()),
-                  ).then((_) {
-                    // Forțează refresh la întoarcere
-                    context.read<UserProvider>();
-                  }),
-                  icon: const Icon(Icons.edit_rounded, size: 16),
-                  label: const Text('Editează profilul'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF374151),
-                    side: const BorderSide(
-                        color: Color(0xFFE5E7EB), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const EditProfileScreen()),
+                        ),
+                        icon: const Icon(Icons.edit_rounded, size: 16),
+                        label: const Text('Editează profilul'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF374151),
+                          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const DatingPreferencesScreen()),
+                        ),
+                        icon: const Icon(Icons.favorite_outline_rounded, size: 16),
+                        label: const Text('Intalneste persoane noi '),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFE11D48),
+                          side: const BorderSide(color: Color(0xFFFDA4AF), width: 1.5),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

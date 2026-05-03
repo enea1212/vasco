@@ -7,77 +7,120 @@ class TinderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-        image: DecorationImage(
-          // Folosim o imagine de placeholder dacă profilul nu are poză
-          image: NetworkImage(profile['photoUrl'] ?? 'https://via.placeholder.com/400x600.png?text=Fara+Poza'),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        // Adăugăm un gradient negru în partea de jos pentru ca textul să fie lizibil
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient(
-            colors: [Colors.transparent, Colors.black87],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: [0.6, 1.0],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    profile['displayName'] ?? 'Anonim',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Dacă trimiți vârsta din funcția Cloud, o poți afișa aici
-                ],
+    final name = profile['displayName'] ?? 'Anonim';
+    final age = profile['age'];
+    final distance = profile['distance'];
+    final bio = profile['bio'] as String?;
+    final photoUrl = profile['photoUrl'] as String?;
+    final interests = List<String>.from(profile['interests'] ?? []);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Fundal — poza sau placeholder
+          if (photoUrl != null && photoUrl.isNotEmpty)
+            Image.network(photoUrl, fit: BoxFit.cover)
+          else
+            Container(
+              color: const Color(0xFFE5E7EB),
+              child: const Icon(Icons.person_rounded, color: Colors.white54, size: 80),
+            ),
+
+          // Gradient negru jos
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.transparent, Colors.black87],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.5, 1.0],
               ),
-              const SizedBox(height: 5),
-              if (profile['distanceInKm'] != null)
+            ),
+          ),
+
+          // Conținut text jos
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Icon(Icons.location_on, color: Colors.white, size: 16),
-                    const SizedBox(width: 5),
-                    Text(
-                      'La ${profile['distanceInKm']} km distanță',
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    if (age != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '$age',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              const SizedBox(height: 10),
-              if (profile['bio'] != null)
-                Text(
-                  profile['bio'],
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-            ],
+                if (distance != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_rounded, color: Colors.white70, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        distance,
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ],
+                if (bio != null && bio.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    bio,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (interests.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: interests.take(3).map((tag) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
