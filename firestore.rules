@@ -44,9 +44,14 @@ service cloud.firestore {
       }
     }
 
-    // Location photos: autentificații pot citi, proprietarul poate crea/edita/șterge
+    // Location photos: queries libere, citire directă protejată de privacy
     match /location_photos/{photoId} {
-      allow read: if request.auth != null;
+      allow list: if request.auth != null;
+      allow get: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        !get(/databases/$(database)/documents/users/$(resource.data.userId)).data.get('isPrivate', false) ||
+        exists(/databases/$(database)/documents/users/$(resource.data.userId)/friends/$(request.auth.uid))
+      );
       allow create: if request.auth != null &&
                     request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null &&

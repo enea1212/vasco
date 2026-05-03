@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
+import 'package:vasco/utils/scroll_utils.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -11,6 +13,7 @@ import 'package:vasco/helpers/mapbox_helper.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/screens/profile_page.dart';
+import 'package:vasco/screens/user_profile_screen.dart';
 import 'package:vasco/screens/friends_page.dart';
 import 'package:vasco/screens/conversations_screen.dart';
 import 'package:vasco/services/photo_service.dart';
@@ -18,6 +21,7 @@ import 'package:vasco/services/geocoding_service.dart';
 import 'package:vasco/widgets/comments_sheet.dart';
 import '../widget/custom_bottom_nav_bar.dart';
 import 'package:vasco/screens/map_page.dart';
+import 'package:vasco/services/spotify_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -176,6 +180,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (pickedFile == null) return;
 
+    SpotifyTrack? spotifyTrack;
+    if (await SpotifyService.isConnected()) {
+      spotifyTrack = await SpotifyService.getCurrentTrack();
+    }
+
     // 3. Detectează țara din assets (rapid, fără rețea)
     final geoJsonString = await rootBundle.loadString('assets/custom.geo.json');
     final geoJsonData = json.decode(geoJsonString) as Map<String, dynamic>;
@@ -201,6 +210,9 @@ class _HomeScreenState extends State<HomeScreen> {
       imageFile: File(pickedFile.path),
       countryName: countryName,
       locationName: locationName,
+      spotifySong: spotifyTrack?.songName,
+      spotifyArtist: spotifyTrack?.artistName,
+      spotifyAlbumArt: spotifyTrack?.albumArtUrl,
     );
 
     // 5. Actualizează lista de țări vizitate
@@ -249,127 +261,175 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // ─── Feed Instagram-style ─────────────────────────────────────────────────────
 
-class _FeedPage extends StatelessWidget {
+class _FeedPage extends StatefulWidget {
   const _FeedPage();
+
+  @override
+  State<_FeedPage> createState() => _FeedPageState();
+}
+
+class _FeedPageState extends State<_FeedPage> {
+  late Stream<QuerySnapshot> _feedStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _feedStream = _buildStream();
+  }
+
+  Stream<QuerySnapshot> _buildStream() =>
+      FirebaseFirestore.instance
+          .collection('location_photos')
+          .orderBy('createdAt', descending: true)
+          .limit(40)
+          .snapshots();
+
+  Future<void> _onRefresh() async {
+    setState(() => _feedStream = _buildStream());
+  }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = context.watch<UserProvider>().user;
     final friends = context.watch<FriendsProvider>().friends;
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('location_photos')
-          .orderBy('createdAt', descending: true)
-          .limit(40)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final docs = snapshot.data?.docs ?? [];
-
-        return CustomScrollView(
-          slivers: [
-            // ── AppBar flotant Instagram-style ─────────────────────────────
-            SliverAppBar(
-              floating: true,
-              snap: true,
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              titleSpacing: 16,
-              title: const Text(
-                'Vasco',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF111827),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.favorite_border_rounded,
-                      color: Color(0xFF111827), size: 26),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send_outlined,
-                      color: Color(0xFF111827), size: 24),
-                  onPressed: () {},
-                ),
-                const SizedBox(width: 4),
-              ],
-              bottom: const PreferredSize(
-                preferredSize: Size.fromHeight(0.5),
-                child: Divider(height: 0.5, thickness: 0.5),
-              ),
-            ),
-
-            // ── Stories ────────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _StoriesRow(currentUser: currentUser, friends: friends),
-            ),
-
-            const SliverToBoxAdapter(
-              child: Divider(height: 0.5, thickness: 0.5),
-            ),
-
-            // ── Posts sau empty state ───────────────────────────────────────
-            if (snapshot.connectionState == ConnectionState.waiting && docs.isEmpty)
-              const SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF4F46E5),
-                    strokeWidth: 2,
-                  ),
-                ),
-              )
-            else if (docs.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 72, height: 72,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.photo_camera_outlined,
-                            size: 36, color: Color(0xFF9CA3AF)),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text('Nicio postare încă',
+    return Column(
+      children: [
+        // ── AppBar fix (nu se mai mișcă cu scroll-ul) ──────────────────────
+        Material(
+          color: Colors.white,
+          elevation: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SafeArea(
+                bottom: false,
+                child: SizedBox(
+                  height: kToolbarHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Vasco',
                           style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                              color: Color(0xFF374151))),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Apasă butonul central pentru a posta.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
-                      ),
-                    ],
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF111827),
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.favorite_border_rounded,
+                              color: Color(0xFF111827), size: 26),
+                          onPressed: () {},
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.send_outlined,
+                              color: Color(0xFF111827), size: 24),
+                          onPressed: () {},
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
                   ),
                 ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) {
-                    final doc = docs[i];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _PostCard(docId: doc.id, data: data);
-                  },
-                  childCount: docs.length,
-                ),
               ),
+              const Divider(height: 0.5, thickness: 0.5),
+            ],
+          ),
+        ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
-          ],
-        );
-      },
+        // ── Feed scrollabil cu pull-to-refresh ────────────────────────────
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _feedStream,
+            builder: (context, snapshot) {
+              final docs = snapshot.data?.docs ?? [];
+
+              return ScrollConfiguration(
+                behavior: const NoGlowScrollBehavior(),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
+                  ),
+                  slivers: [
+                    CupertinoSliverRefreshControl(
+                      onRefresh: _onRefresh,
+                      refreshTriggerPullDistance: 36,
+                      refreshIndicatorExtent: 30,
+                      builder: buildPullRefreshIndicator,
+                    ),
+                    SliverToBoxAdapter(
+                      child: _StoriesRow(currentUser: currentUser, friends: friends),
+                    ),
+
+                    const SliverToBoxAdapter(
+                      child: Divider(height: 0.5, thickness: 0.5),
+                    ),
+
+                    if (snapshot.connectionState == ConnectionState.waiting && docs.isEmpty)
+                      const SliverFillRemaining(
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF4F46E5),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    else if (docs.isEmpty)
+                      SliverFillRemaining(
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 72, height: 72,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Icon(Icons.photo_camera_outlined,
+                                    size: 36, color: Color(0xFF9CA3AF)),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text('Nicio postare încă',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                      color: Color(0xFF374151))),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Apasă butonul central pentru a posta.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (ctx, i) {
+                            final doc = docs[i];
+                            final data = doc.data() as Map<String, dynamic>;
+                            return _PostCard(docId: doc.id, data: data);
+                          },
+                          childCount: docs.length,
+                        ),
+                      ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -388,6 +448,7 @@ class _StoriesRow extends StatelessWidget {
       height: 104,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         itemCount: 1 + friends.length,
         itemBuilder: (_, i) {
@@ -572,6 +633,156 @@ class _PostCardState extends State<_PostCard> {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _fetchLikers() async {
+    final likesSnap = await FirebaseFirestore.instance
+        .collection('location_photos')
+        .doc(widget.docId)
+        .collection('likes')
+        .get();
+    final result = <Map<String, dynamic>>[];
+    for (final likeDoc in likesSnap.docs) {
+      final userSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(likeDoc.id)
+          .get();
+      if (userSnap.exists) {
+        final u = userSnap.data() as Map<String, dynamic>;
+        result.add({
+          'userId': likeDoc.id,
+          'displayName': u['displayName'] ?? u['display_name'] ?? 'Utilizator',
+          'photoUrl': u['photoUrl'] ?? u['photo_url'],
+        });
+      }
+    }
+    return result;
+  }
+
+  void _showLikers(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Aprecieri',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF111827)),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _fetchLikers(),
+                  builder: (_, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2));
+                    }
+                    final likers = snap.data ?? [];
+                    if (likers.isEmpty) {
+                      return const Center(
+                        child: Text('Nicio apreciere încă.',
+                            style: TextStyle(color: Color(0xFF9CA3AF))),
+                      );
+                    }
+                    return ListView.separated(
+                      controller: controller,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: likers.length,
+                      separatorBuilder: (_, _) =>
+                          const Divider(height: 1, indent: 60),
+                      itemBuilder: (_, i) {
+                        final liker = likers[i];
+                        final photo = liker['photoUrl'] as String?;
+                        final name =
+                            liker['displayName'] as String? ?? 'Utilizator';
+                        final likerId = liker['userId'] as String? ?? '';
+                        return GestureDetector(
+                          onTap: likerId.isNotEmpty
+                              ? () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => UserProfileScreen(
+                                        userId: likerId,
+                                        initialDisplayName: name,
+                                        initialPhotoUrl: photo,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 10),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundImage: photo != null
+                                      ? NetworkImage(photo)
+                                      : null,
+                                  backgroundColor: const Color(0xFFF3F4F6),
+                                  child: photo == null
+                                      ? const Icon(Icons.person_rounded,
+                                          color: Color(0xFF9CA3AF), size: 20)
+                                      : null,
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      color: Color(0xFF111827),
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded,
+                                    color: Color(0xFFD1D5DB), size: 20),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
     final diff = DateTime.now().difference(ts.toDate());
@@ -591,6 +802,10 @@ class _PostCardState extends State<_PostCard> {
     final locationLabel = _locationLabel;
     final timeLabel = _timeAgo(createdAt);
     final currentUserId = context.watch<UserProvider>().user?.id ?? '';
+    final postUserId = d['userId'] as String? ?? '';
+    final spotifySong = d['spotifySong'] as String?;
+    final spotifyArtist = d['spotifyArtist'] as String? ?? '';
+    final spotifyAlbumArt = d['spotifyAlbumArt'] as String? ?? '';
 
     if (currentUserId.isEmpty) return const SizedBox.shrink();
 
@@ -602,63 +817,88 @@ class _PostCardState extends State<_PostCard> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              // Avatar cu border gradient
-              Container(
-                width: 38,
-                height: 38,
-                padding: const EdgeInsets.all(1.5),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFF09433), Color(0xFFDC2743),
-                             Color(0xFFBC1888)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  padding: const EdgeInsets.all(1.5),
-                  child: CircleAvatar(
-                    radius: 15,
-                    backgroundImage: userPhotoUrl.isNotEmpty
-                        ? NetworkImage(userPhotoUrl)
-                        : null,
-                    backgroundColor: const Color(0xFFF3F4F6),
-                    child: userPhotoUrl.isEmpty
-                        ? const Icon(Icons.person_rounded,
-                            color: Color(0xFF9CA3AF), size: 16)
-                        : null,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                        color: Color(0xFF111827),
-                      ),
-                    ),
-                    if (locationLabel != null)
-                      Text(
-                        locationLabel,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B7280),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (postUserId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UserProfileScreen(
+                            userId: postUserId,
+                            initialDisplayName: displayName,
+                            initialPhotoUrl: userPhotoUrl.isNotEmpty
+                                ? userPhotoUrl
+                                : null,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
+                      );
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      // Avatar cu border gradient
+                      Container(
+                        width: 38,
+                        height: 38,
+                        padding: const EdgeInsets.all(1.5),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFF09433), Color(0xFFDC2743),
+                                     Color(0xFFBC1888)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(1.5),
+                          child: CircleAvatar(
+                            radius: 15,
+                            backgroundImage: userPhotoUrl.isNotEmpty
+                                ? NetworkImage(userPhotoUrl)
+                                : null,
+                            backgroundColor: const Color(0xFFF3F4F6),
+                            child: userPhotoUrl.isEmpty
+                                ? const Icon(Icons.person_rounded,
+                                    color: Color(0xFF9CA3AF), size: 16)
+                                : null,
+                          ),
+                        ),
                       ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                            if (locationLabel != null)
+                              Text(
+                                locationLabel,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const Icon(Icons.more_horiz_rounded,
@@ -668,14 +908,29 @@ class _PostCardState extends State<_PostCard> {
         ),
 
         // ── Imagine full-width ─────────────────────────────────────────────
-        imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, e, stack) => _placeholder(),
-              )
-            : _placeholder(),
+        Stack(
+          children: [
+            imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, e, stack) => _placeholder(),
+                  )
+                : _placeholder(),
+            if (spotifySong != null)
+              Positioned(
+                bottom: 10,
+                left: 10,
+                right: 60,
+                child: _MusicBadge(
+                  songName: spotifySong,
+                  artistName: spotifyArtist,
+                  albumArtUrl: spotifyAlbumArt,
+                ),
+              ),
+          ],
+        ),
 
         // ── Acțiuni + statistici ───────────────────────────────────────────
         StreamBuilder<DocumentSnapshot>(
@@ -742,17 +997,20 @@ class _PostCardState extends State<_PostCard> {
                       ),
                     ),
 
-                    // Număr aprecieri
+                    // Număr aprecieri (tap → cine a dat like)
                     if (likesCount > 0)
-                      Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                        child: Text(
-                          '$likesCount aprecieri',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            color: Color(0xFF111827),
+                      GestureDetector(
+                        onTap: () => _showLikers(context),
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                          child: Text(
+                            '$likesCount aprecieri',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: Color(0xFF111827),
+                            ),
                           ),
                         ),
                       ),
@@ -806,3 +1064,88 @@ class _PostCardState extends State<_PostCard> {
           child: Icon(Icons.image_rounded,
               size: 52, color: Color(0xFF9CA3AF))));
 }
+
+// ─── Music badge (BeReal-style Spotify) ──────────────────────────────────────
+
+class _MusicBadge extends StatelessWidget {
+  final String songName;
+  final String artistName;
+  final String albumArtUrl;
+
+  const _MusicBadge({
+    required this.songName,
+    required this.artistName,
+    required this.albumArtUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: albumArtUrl.isNotEmpty
+                ? Image.network(
+                    albumArtUrl,
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _albumPlaceholder(),
+                  )
+                : _albumPlaceholder(),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  songName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (artistName.isNotEmpty)
+                  Text(
+                    artistName,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 11,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.music_note_rounded,
+              color: Color(0xFF1DB954), size: 14),
+        ],
+      ),
+    );
+  }
+
+  Widget _albumPlaceholder() => Container(
+        width: 36,
+        height: 36,
+        color: const Color(0xFF374151),
+        child: const Icon(Icons.music_note_rounded,
+            color: Color(0xFF9CA3AF), size: 18),
+      );
+}
+

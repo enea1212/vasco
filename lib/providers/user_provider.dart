@@ -27,6 +27,7 @@ class UserProvider with ChangeNotifier {
           photoUrl: data['photoUrl'],
           biography: data['bio'] ?? "",
           sharedCountriesCount: (data['shared_countries'] as List?)?.length ?? 0,
+          isPrivate: data['isPrivate'] as bool? ?? false,
         );
         notifyListeners();
       }

@@ -1,3 +1,6 @@
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
+import 'dart:async';
+import 'package:vasco/utils/scroll_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/message_model.dart';
@@ -113,78 +116,106 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       return _emptyState();
     }
 
-    return CustomScrollView(
-      slivers: [
-        if (conversations.isNotEmpty) ...[
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                'Recente',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
-                  letterSpacing: 0.5,
+    return ScrollConfiguration(
+      behavior: const NoGlowScrollBehavior(),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
+        ),
+        slivers: [
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              final provider = context.read<MessagingProvider>();
+              final oldConvs = List.of(provider.conversations);
+              provider.init(currentUserId);
+              final completer = Completer<void>();
+              void listener() {
+                if (provider.conversations != oldConvs && !completer.isCompleted) {
+                  completer.complete();
+                }
+              }
+              provider.addListener(listener);
+              await Future.any(<Future<void>>[
+                completer.future,
+                Future.delayed(const Duration(seconds: 2)),
+              ]);
+              provider.removeListener(listener);
+            },
+            refreshTriggerPullDistance: 36,
+            refreshIndicatorExtent: 30,
+            builder: buildPullRefreshIndicator,
+          ),
+          if (conversations.isNotEmpty) ...[
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text(
+                  'Recente',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (_, i) {
-                final isLast = i == conversations.length - 1;
-                return Column(
-                  children: [
-                    _ConvTile(
-                      conv: conversations[i],
-                      currentUserId: currentUserId,
-                    ),
-                    if (!isLast)
-                      const Divider(height: 1, indent: 80, endIndent: 16),
-                  ],
-                );
-              },
-              childCount: conversations.length,
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, i) {
+                  final isLast = i == conversations.length - 1;
+                  return Column(
+                    children: [
+                      _ConvTile(
+                        conv: conversations[i],
+                        currentUserId: currentUserId,
+                      ),
+                      if (!isLast)
+                        const Divider(height: 1, indent: 80, endIndent: 16),
+                    ],
+                  );
+                },
+                childCount: conversations.length,
+              ),
             ),
-          ),
-        ],
-        if (friends.isNotEmpty) ...[
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text(
-                'Toți prietenii',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
-                  letterSpacing: 0.5,
+          ],
+          if (friends.isNotEmpty) ...[
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text(
+                  'Toți prietenii',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (ctx, i) {
-                final isLast = i == friends.length - 1;
-                return Column(
-                  children: [
-                    _FriendTile(
-                      friend: friends[i],
-                      currentUserId: currentUserId,
-                    ),
-                    if (!isLast)
-                      const Divider(height: 1, indent: 72, endIndent: 16),
-                  ],
-                );
-              },
-              childCount: friends.length,
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) {
+                  final isLast = i == friends.length - 1;
+                  return Column(
+                    children: [
+                      _FriendTile(
+                        friend: friends[i],
+                        currentUserId: currentUserId,
+                      ),
+                      if (!isLast)
+                        const Divider(height: 1, indent: 72, endIndent: 16),
+                    ],
+                  );
+                },
+                childCount: friends.length,
+              ),
             ),
-          ),
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
-      ],
+      ),
     );
   }
 
@@ -468,3 +499,4 @@ class _ConvTileState extends State<_ConvTile> {
     );
   }
 }
+

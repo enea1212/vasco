@@ -5,6 +5,7 @@ import '../models/user_model.dart';
 import '../providers/friends_provider.dart';
 import '../providers/user_provider.dart';
 import '../repository/friends_repository.dart';
+import 'user_profile_screen.dart';
 
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});
@@ -209,38 +210,51 @@ class _UserTileState extends State<_UserTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(
+            userId: widget.user.id,
+            initialDisplayName: widget.user.displayName,
+            initialPhotoUrl: widget.user.photoUrl,
+          ),
+        ),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: (widget.user.photoUrl?.isNotEmpty == true) ? NetworkImage(widget.user.photoUrl!) : null,
-            backgroundColor: const Color(0xFFF3F4F6),
-            child: (widget.user.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.user.displayName ?? widget.user.email,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
-                if (widget.user.biography?.isNotEmpty == true)
-                  Text(widget.user.biography!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
-              ],
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundImage: (widget.user.photoUrl?.isNotEmpty == true) ? NetworkImage(widget.user.photoUrl!) : null,
+              backgroundColor: const Color(0xFFF3F4F6),
+              child: (widget.user.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
             ),
-          ),
-          const SizedBox(width: 8),
-          _buildButton(context),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.user.displayName ?? widget.user.email,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
+                  if (widget.user.biography?.isNotEmpty == true)
+                    Text(widget.user.biography!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildButton(context),
+          ],
+        ),
       ),
     );
   }
@@ -320,12 +334,21 @@ class _RequestsTab extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: requests.length,
-      itemBuilder: (context, i) => _RequestTile(
-        request: requests[i],
-        currentUserId: currentUser.id,
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<FriendsProvider>().init(currentUser.id);
+        await Future.delayed(const Duration(milliseconds: 400));
+      },
+      color: const Color(0xFF4F46E5),
+      displacement: 40,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+        itemCount: requests.length,
+        itemBuilder: (context, i) => _RequestTile(
+          request: requests[i],
+          currentUserId: currentUser.id,
+        ),
       ),
     );
   }
@@ -451,12 +474,32 @@ class _FriendsTab extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<FriendsProvider>().init(currentUser.id);
+        await Future.delayed(const Duration(milliseconds: 400));
+      },
+      color: const Color(0xFF4F46E5),
+      displacement: 40,
+      child: ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
+      physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
       itemCount: friends.length,
       itemBuilder: (context, i) {
         final friend = friends[i];
-        return Container(
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserProfileScreen(
+                userId: friend.id,
+                initialDisplayName: friend.displayName,
+                initialPhotoUrl: friend.photoUrl,
+              ),
+            ),
+          ),
+          child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -502,8 +545,10 @@ class _FriendsTab extends StatelessWidget {
               ),
             ],
           ),
+        ),
         );
       },
+      ),
     );
   }
 

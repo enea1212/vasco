@@ -16,6 +16,9 @@ class MyPhotoService {
     required File imageFile,
     String? countryName,
     String? locationName,
+    String? spotifySong,
+    String? spotifyArtist,
+    String? spotifyAlbumArt,
   }) async {
     final id = const Uuid().v4();
     final ref = FirebaseStorage.instance.ref('location_photos/$id.jpg');
@@ -33,6 +36,9 @@ class MyPhotoService {
     };
     if (countryName != null) data['countryName'] = countryName;
     if (locationName != null) data['locationName'] = locationName;
+    if (spotifySong != null) data['spotifySong'] = spotifySong;
+    if (spotifyArtist != null) data['spotifyArtist'] = spotifyArtist;
+    if (spotifyAlbumArt != null) data['spotifyAlbumArt'] = spotifyAlbumArt;
     await FirebaseFirestore.instance.collection(_collection).doc(id).set(data);
   }
 

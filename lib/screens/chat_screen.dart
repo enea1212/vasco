@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/message_model.dart';
 import '../providers/messaging_provider.dart';
 import '../repository/messaging_repository.dart';
+import 'user_profile_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -94,29 +95,42 @@ class _ChatScreenState extends State<ChatScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         titleSpacing: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: widget.otherUserPhoto != null
-                  ? NetworkImage(widget.otherUserPhoto!)
-                  : null,
-              backgroundColor: const Color(0xFFF3F4F6),
-              child: widget.otherUserPhoto == null
-                  ? const Icon(Icons.person_rounded,
-                      size: 18, color: Color(0xFF9CA3AF))
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              widget.otherUserName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: Color(0xFF111827),
+        title: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserProfileScreen(
+                userId: widget.otherUserId,
+                initialDisplayName: widget.otherUserName,
+                initialPhotoUrl: widget.otherUserPhoto,
               ),
             ),
-          ],
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundImage: widget.otherUserPhoto != null
+                    ? NetworkImage(widget.otherUserPhoto!)
+                    : null,
+                backgroundColor: const Color(0xFFF3F4F6),
+                child: widget.otherUserPhoto == null
+                    ? const Icon(Icons.person_rounded,
+                        size: 18, color: Color(0xFF9CA3AF))
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                widget.otherUserName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       body: Column(

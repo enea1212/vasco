@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/providers/user_provider.dart';
@@ -5,13 +6,32 @@ import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/repository/edit_profile.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  bool _privacyLoading = false;
+
+  Future<void> _togglePrivacy(String uid, bool currentValue) async {
+    setState(() => _privacyLoading = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({'isPrivate': !currentValue});
+    } finally {
+      if (mounted) setState(() => _privacyLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = context.read<AuthService>();
-    final user = context.read<UserProvider>().user;
+    final user = context.watch<UserProvider>().user;
 
     return Scaffold(
       appBar: AppBar(
@@ -94,6 +114,83 @@ class SettingsPage extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const EditProfileScreen()),
             ),
           ),
+          const SizedBox(height: 28),
+
+          // ── Secțiunea Confidențialitate ────────────────────────────────────
+          const Text(
+            'CONFIDENȚIALITATE',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 1.2),
+          ),
+          const SizedBox(height: 8),
+          if (user != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E8FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.lock_rounded,
+                        color: Color(0xFF7C3AED), size: 19),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Cont privat',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        Text(
+                          user.isPrivate
+                              ? 'Doar prietenii îți pot vedea profilul'
+                              : 'Oricine îți poate vedea profilul',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _privacyLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Color(0xFF7C3AED)),
+                        )
+                      : Switch(
+                          value: user.isPrivate,
+                          onChanged: (_) =>
+                              _togglePrivacy(user.id, user.isPrivate),
+                          activeThumbColor: const Color(0xFF7C3AED),
+                          activeTrackColor: const Color(0xFFEDE9FE),
+                        ),
+                ],
+              ),
+            ),
           const SizedBox(height: 28),
 
           // ── Secțiunea Altele ───────────────────────────────────────────────

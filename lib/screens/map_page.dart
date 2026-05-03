@@ -18,7 +18,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/user_provider.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({Key? key}) : super(key: key);
+  final String? userId;
+  const MapPage({Key? key, this.userId}) : super(key: key);
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -57,12 +58,16 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _bootstrap() async {
-    await Future.wait([_loadGeoJson(), _initLocationAndImage()]);
+    if (widget.userId != null) {
+      await _loadGeoJson();
+    } else {
+      await Future.wait([_loadGeoJson(), _initLocationAndImage()]);
+    }
     if (!mounted) return;
     setState(() => _isLoading = false);
     await _mapReadyCompleter.future;
     if (!mounted) return;
-    _startPositionStream();
+    if (widget.userId == null) _startPositionStream();
   }
 
   Future<void> _initLocationAndImage() async {
@@ -148,8 +153,10 @@ class _MapPageState extends State<MapPage> {
     await _circleAnnotationManager!.deleteAll();
 
     final user = Provider.of<UserProvider>(context, listen: false).user;
+    final filterUserId =
+        widget.userId ?? (_showOnlyMine ? user?.id : null);
     final photos = await MyPhotoService.fetchAllPhotos(
-      onlyUserId: _showOnlyMine ? user?.id : null,
+      onlyUserId: filterUserId,
     );
 
     if (photos.isEmpty) return;
@@ -208,11 +215,13 @@ class _MapPageState extends State<MapPage> {
     final tappedLng = gestureContext.point.coordinates.lng.toDouble();
 
     final user = Provider.of<UserProvider>(context, listen: false).user;
+    final filterUserId =
+        widget.userId ?? (_showOnlyMine ? user?.id : null);
     final nearbyPhotos = await MyPhotoService.fetchPhotosNear(
       latitude: tappedLat,
       longitude: tappedLng,
       radiusKm: 1.0,
-      onlyUserId: _showOnlyMine ? user?.id : null,
+      onlyUserId: filterUserId,
     );
 
     if (nearbyPhotos.isEmpty) return;
@@ -297,11 +306,12 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _loadSharedCountriesAndColor() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user == null || _mapboxMap == null) return;
+    final targetId = widget.userId ?? user?.id;
+    if (targetId == null || _mapboxMap == null) return;
 
     final doc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(user.id)
+        .doc(targetId)
         .get();
     final data = doc.data();
     if (data != null && data['shared_countries'] != null) {
@@ -309,7 +319,7 @@ class _MapPageState extends State<MapPage> {
       _sharedCountries =
           list.map((e) => Map<String, String>.from(e)).toList();
       await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
-      if (_currentPosition != null) {
+      if (widget.userId == null && _currentPosition != null) {
         await _refreshUserAnnotation(_currentPosition!);
       }
     }
@@ -409,13 +419,19 @@ class _MapPageState extends State<MapPage> {
                             offset: Offset(0, 2))
                       ],
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _toggleBtn('Toți', !_showOnlyMine),
-                        _toggleBtn('Ale mele', _showOnlyMine),
-                      ],
-                    ),
+                    child: widget.userId != null
+                        ? IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_rounded,
+                                size: 20, color: Color(0xFF111827)),
+                            onPressed: () => Navigator.pop(context),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _toggleBtn('Toți', !_showOnlyMine),
+                              _toggleBtn('Ale mele', _showOnlyMine),
+                            ],
+                          ),
                   ),
                 ),
               ],

@@ -1,4 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vasco/services/spotify_service.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
+import 'package:vasco/utils/scroll_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/models/user_model.dart';
@@ -6,99 +9,168 @@ import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/edit_profile.dart';
+import 'package:vasco/screens/map_page.dart';
 import 'package:vasco/screens/settings_page.dart';
 import 'package:vasco/widgets/post_story_viewer.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Stream<QuerySnapshot>? _photosStream;
+  String? _streamUid;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final userProvider = context.read<UserProvider>();
+      _initStream(userProvider.user?.id);
+      userProvider.addListener(_onUserChanged);
+    });
+  }
+
+  void _onUserChanged() {
+    if (!mounted) return;
+    _initStream(context.read<UserProvider>().user?.id);
+  }
+
+  void _initStream(String? uid) {
+    debugPrint('[ProfileScreen] _initStream called with uid: $uid, _streamUid: $_streamUid');
+    if (uid == null || uid == _streamUid) return;
+    setState(() {
+      _streamUid = uid;
+      _photosStream = FirebaseFirestore.instance
+          .collection('location_photos')
+          .where('userId', isEqualTo: uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots();
+      debugPrint('[ProfileScreen] _photosStream set for uid: $uid');
+    });
+  }
+
+  @override
+  void dispose() {
+    final userProvider = context.read<UserProvider>();
+    userProvider.removeListener(_onUserChanged);
+    super.dispose();
+  }
+
+  Future<void> _onRefresh() async {
+    if (_streamUid != null) {
+      setState(() {
+        _photosStream = FirebaseFirestore.instance
+            .collection('location_photos')
+            .where('userId', isEqualTo: _streamUid)
+            .orderBy('createdAt', descending: true)
+            .snapshots();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+
     final user = context.watch<UserProvider>().user;
     final friends = context.watch<FriendsProvider>().friends;
-
+    debugPrint('[ProfileScreen] build: user id: \'${user?.id}\', _streamUid: $_streamUid');
     if (user == null) {
+      debugPrint('[ProfileScreen] build: user is null');
       return const Center(child: CircularProgressIndicator());
     }
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('location_photos')
-          .where('userId', isEqualTo: user.id)
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
+      stream: _photosStream,
       builder: (context, photosSnap) {
         final photoDocs = photosSnap.data?.docs ?? [];
         final photosCount = photoDocs.length;
-        final totalLikes = photoDocs.fold<int>(
-          0,
-          (acc, doc) {
-            final d = doc.data() as Map<String, dynamic>;
-            return acc + ((d['likesCount'] as num?)?.toInt() ?? 0);
-          },
-        );
 
-        return CustomScrollView(
-          slivers: [
-            // ── Header gradient ─────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _ProfileHeader(user: user),
+        return ScrollConfiguration(
+          behavior: const NoGlowScrollBehavior(),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
             ),
-
-            // ── Stats cards 2×2 ─────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _StatsGrid(
-                countries: user.sharedCountriesCount,
-                friends: friends.length,
-                photos: photosCount,
-                likes: totalLikes,
-                onFriendsTap: () => _showFriendsList(context, friends),
+            slivers: [
+              CupertinoSliverRefreshControl(
+                onRefresh: _onRefresh,
+                refreshTriggerPullDistance: 36,
+                refreshIndicatorExtent: 30,
+                builder: buildPullRefreshIndicator,
               ),
-            ),
 
-            // ── Buton editare ────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
+              // ── Header gradient ───────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _ProfileHeader(user: user),
+              ),
+
+              // ── Stats cards 2×2 ──────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _StatsGrid(
+                  countries: user.sharedCountriesCount,
+                  friends: friends.length,
+                  photos: photosCount,
+                  onCountriesTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const EditProfileScreen()),
+                      builder: (_) => MapPage(userId: user.id),
+                    ),
                   ),
-                  icon: const Icon(Icons.edit_rounded, size: 16),
-                  label: const Text('Editează profilul'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF374151),
-                    side: const BorderSide(
-                        color: Color(0xFFE5E7EB), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  onFriendsTap: () => _showFriendsList(context, friends),
+                ),
+              ),
+
+              // ── Buton editare ─────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const EditProfileScreen()),
+                    ),
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Editează profilul'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF374151),
+                      side: const BorderSide(
+                          color: Color(0xFFE5E7EB), width: 1.5),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // ── Călătoriile mele ─────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _TripsSection(
-                photoDocs: photoDocs,
+              // ── Spotify ───────────────────────────────────────────────────
+              const SliverToBoxAdapter(
+                child: _SpotifyConnectTile(),
               ),
-            ),
 
-            // ── Realizări ───────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _AchievementsSection(
-                countries: user.sharedCountriesCount,
-                photos: photosCount,
-                friends: friends.length,
+              // ── Călătoriile mele ──────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _TripsSection(photoDocs: photoDocs),
               ),
-            ),
 
-            // Padding pentru bara de navigare
-            const SliverToBoxAdapter(child: SizedBox(height: 110)),
-          ],
+              // ── Realizări ─────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _AchievementsSection(
+                  countries: user.sharedCountriesCount,
+                  photos: photosCount,
+                  friends: friends.length,
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 110)),
+            ],
+          ),
         );
       },
     );
@@ -352,14 +424,14 @@ class _StatsGrid extends StatelessWidget {
   final int countries;
   final int friends;
   final int photos;
-  final int likes;
+  final VoidCallback onCountriesTap;
   final VoidCallback onFriendsTap;
 
   const _StatsGrid({
     required this.countries,
     required this.friends,
     required this.photos,
-    required this.likes,
+    required this.onCountriesTap,
     required this.onFriendsTap,
   });
 
@@ -372,12 +444,15 @@ class _StatsGrid extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _StatCard(
-                  icon: Icons.public_rounded,
-                  iconColor: const Color(0xFF4F46E5),
-                  iconBg: const Color(0xFFEEF2FF),
-                  value: '$countries',
-                  label: 'Țări vizitate',
+                child: GestureDetector(
+                  onTap: onCountriesTap,
+                  child: _StatCard(
+                    icon: Icons.public_rounded,
+                    iconColor: const Color(0xFF4F46E5),
+                    iconBg: const Color(0xFFEEF2FF),
+                    value: '$countries',
+                    label: 'Țări vizitate',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -396,28 +471,12 @@ class _StatsGrid extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.camera_alt_rounded,
-                  iconColor: const Color(0xFF059669),
-                  iconBg: const Color(0xFFD1FAE5),
-                  value: '$photos',
-                  label: 'Fotografii',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.favorite_rounded,
-                  iconColor: const Color(0xFFEF4444),
-                  iconBg: const Color(0xFFFEE2E2),
-                  value: '$likes',
-                  label: 'Like-uri',
-                ),
-              ),
-            ],
+          _StatCard(
+            icon: Icons.camera_alt_rounded,
+            iconColor: const Color(0xFF059669),
+            iconBg: const Color(0xFFD1FAE5),
+            value: '$photos',
+            label: 'Fotografii',
           ),
         ],
       ),
@@ -493,23 +552,41 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ─── Secțiunea Călătoriile mele ───────────────────────────────────────────────
+// ─── Secțiunea Călătoriile mele (grupate pe țări) ────────────────────────────
 
 class _TripsSection extends StatelessWidget {
   final List<QueryDocumentSnapshot> photoDocs;
 
   const _TripsSection({required this.photoDocs});
 
+  Map<String, List<QueryDocumentSnapshot>> _groupByCountry() {
+    final map = <String, List<QueryDocumentSnapshot>>{};
+    for (final doc in photoDocs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final country =
+          data['countryName'] as String? ?? 'Altele';
+      map.putIfAbsent(country, () => []).add(doc);
+    }
+    return map;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (photoDocs.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionHeader(context, 'Călătoriile mele', false),
-            const SizedBox(height: 12),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Călătoriile mele',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (photoDocs.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 32),
@@ -522,143 +599,100 @@ class _TripsSection extends StatelessWidget {
                   Icon(Icons.photo_camera_outlined,
                       size: 40, color: Color(0xFFD1D5DB)),
                   SizedBox(height: 8),
-                  Text(
-                    'Nicio fotografie încă',
-                    style: TextStyle(color: Color(0xFF9CA3AF)),
-                  ),
+                  Text('Nicio fotografie încă',
+                      style: TextStyle(color: Color(0xFF9CA3AF))),
                 ],
               ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final preview = photoDocs.take(6).toList();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(context, 'Călătoriile mele', photoDocs.length > 6),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: preview.length,
-            itemBuilder: (context, index) {
-              final data =
-                  preview[index].data() as Map<String, dynamic>;
-              final imageUrl = data['imageUrl'] as String? ?? '';
-              final location = data['locationName'] as String? ??
-                  data['countryName'] as String? ?? '';
-
-              return GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PostStoryViewer(
-                      docs: photoDocs.cast<QueryDocumentSnapshot>(),
-                      initialIndex: index,
-                      collection: 'location_photos',
-                    ),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      imageUrl.isNotEmpty
-                          ? Image.network(imageUrl, fit: BoxFit.cover)
-                          : Container(color: const Color(0xFFF3F4F6)),
-                      // Label locație jos
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 4),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.6),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                          child: location.isNotEmpty
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                        Icons.location_on_rounded,
-                                        size: 9,
-                                        color: Colors.white),
-                                    const SizedBox(width: 2),
-                                    Flexible(
-                                      child: Text(
-                                        location,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+            )
+          else
+            ..._groupByCountry().entries.map((entry) =>
+                _CountryPhotoRow(
+                  country: entry.key,
+                  docs: entry.value,
+                  allDocs: photoDocs,
+                )),
         ],
       ),
     );
   }
+}
 
-  Widget _sectionHeader(
-      BuildContext context, String title, bool showViewAll) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF111827),
-          ),
-        ),
-        if (showViewAll)
-          GestureDetector(
-            onTap: () {},
-            child: const Text(
-              'Vezi toate',
-              style: TextStyle(
-                fontSize: 13,
-                color: Color(0xFF4F46E5),
-                fontWeight: FontWeight.w600,
+class _CountryPhotoRow extends StatelessWidget {
+  final String country;
+  final List<QueryDocumentSnapshot> docs;
+  final List<QueryDocumentSnapshot> allDocs;
+
+  const _CountryPhotoRow({
+    required this.country,
+    required this.docs,
+    required this.allDocs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.public_rounded,
+                  size: 16, color: Color(0xFF4F46E5)),
+              const SizedBox(width: 6),
+              Text(
+                country,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: Color(0xFF111827),
+                ),
               ),
+              const SizedBox(width: 6),
+              Text(
+                '${docs.length} ${docs.length == 1 ? 'fotografie' : 'fotografii'}',
+                style: const TextStyle(
+                    fontSize: 12, color: Color(0xFF9CA3AF)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 110,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: docs.length,
+              itemBuilder: (context, i) {
+                final data = docs[i].data() as Map<String, dynamic>;
+                final imageUrl = data['imageUrl'] as String? ?? '';
+                final globalIndex = allDocs.indexOf(docs[i]);
+                return GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PostStoryViewer(
+                        docs: allDocs.cast<QueryDocumentSnapshot>(),
+                        initialIndex: globalIndex >= 0 ? globalIndex : 0,
+                        collection: 'location_photos',
+                      ),
+                    ),
+                  ),
+                  child: Container(
+                    width: 110,
+                    margin: const EdgeInsets.only(right: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          : Container(color: const Color(0xFFF3F4F6)),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -812,6 +846,123 @@ class _AchievementTile extends StatelessWidget {
   }
 }
 
+// ─── Spotify connect tile ─────────────────────────────────────────────────────
+
+class _SpotifyConnectTile extends StatefulWidget {
+  const _SpotifyConnectTile();
+
+  @override
+  State<_SpotifyConnectTile> createState() => _SpotifyConnectTileState();
+}
+
+class _SpotifyConnectTileState extends State<_SpotifyConnectTile> {
+  bool? _isConnected;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnection();
+  }
+
+  Future<void> _checkConnection() async {
+    final connected = await SpotifyService.isConnected();
+    if (mounted) setState(() => _isConnected = connected);
+  }
+
+  Future<void> _handleTap() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    if (_isConnected == true) {
+      await SpotifyService.logout();
+      if (mounted) setState(() { _isConnected = false; _isLoading = false; });
+    } else {
+      final success = await SpotifyService.login();
+      if (mounted) setState(() { _isConnected = success; _isLoading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: GestureDetector(
+        onTap: _handleTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: _isConnected == true
+                ? const Color(0xFFD1FAE5)
+                : const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1DB954),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.music_note_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Spotify',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    Text(
+                      _isConnected == null
+                          ? 'Se verifică...'
+                          : _isConnected == true
+                              ? 'Conectat — muzica apare la postări'
+                              : 'Conectează pentru a adăuga muzică',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isLoading)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFF1DB954)),
+                )
+              else
+                Icon(
+                  _isConnected == true
+                      ? Icons.check_circle_rounded
+                      : Icons.chevron_right_rounded,
+                  color: _isConnected == true
+                      ? const Color(0xFF059669)
+                      : const Color(0xFF9CA3AF),
+                  size: 22,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Dialog edit/delete postare (folosit din exterior) ───────────────────────
 
 void showPostOptions(
@@ -929,3 +1080,4 @@ void _showDeleteConfirmation(BuildContext context, String postId,
     ),
   );
 }
+

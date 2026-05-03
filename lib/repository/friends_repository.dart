@@ -48,7 +48,6 @@ class FriendsRepository {
     final snapshot = await _db
         .collection('users')
         .where('displayNameLower', isGreaterThanOrEqualTo: lower)
-        .where('displayNameLower', isLessThanOrEqualTo: lower)
         .limit(20)
         .get();
 
@@ -63,7 +62,8 @@ class FriendsRepository {
             biography: data['bio'],
           );
         })
-        .where((u) => u.id != currentUserId)
+        .where((u) => u.id != currentUserId &&
+            (u.displayName?.toLowerCase().contains(lower) ?? false))
         .toList();
   }
 
