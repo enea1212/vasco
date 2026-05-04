@@ -145,6 +145,10 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid != null) {
+      await _db.collection('user_locations').doc(uid).delete();
+    }
     await _firebaseAuth.signOut();
     await _googleSignIn.signOut();
   }
@@ -179,8 +183,7 @@ class AuthService {
       await user.delete();
 
       await signOut();
-    } on FirebaseAuthException catch (e) {
-      // Tratăm erori specifice (ex: parolă greșită la re-autentificare)
+    } on FirebaseAuthException {
       throw Exception('A apărut o eroare la ștergerea contului.');
     }
   }

@@ -7,6 +7,8 @@ class ConversationModel {
   final DateTime? lastMessageTime;
   final String lastMessageSenderId;
   final Map<String, int> unreadCount;
+  final bool isGroup;
+  final String? name;
 
   const ConversationModel({
     required this.id,
@@ -15,6 +17,8 @@ class ConversationModel {
     this.lastMessageTime,
     required this.lastMessageSenderId,
     required this.unreadCount,
+    this.isGroup = false,
+    this.name,
   });
 
   factory ConversationModel.fromDoc(DocumentSnapshot doc) {
@@ -30,6 +34,8 @@ class ConversationModel {
           (k, v) => MapEntry(k, (v as num).toInt()),
         ),
       ),
+      isGroup: d['isGroup'] as bool? ?? false,
+      name: d['name'] as String?,
     );
   }
 

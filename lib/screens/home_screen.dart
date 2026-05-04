@@ -10,8 +10,10 @@ import 'package:geolocator/geolocator.dart' as geo;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/helpers/mapbox_helper.dart';
+import 'package:vasco/models/user_model.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/repository/messaging_repository.dart';
 import 'package:vasco/screens/profile_page.dart';
 import 'package:vasco/screens/user_profile_screen.dart';
 import 'package:vasco/screens/friends_page.dart';
@@ -70,17 +72,21 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(12),
+          if (_selectedIndex == 2)
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.group_add_rounded, color: Color(0xFF4F46E5)),
+                onPressed: () {
+                  final friends = context.read<FriendsProvider>().friends;
+                  _showCreateGroupDialog(context, friends);
+                },
+              ),
             ),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF374151)),
-              onPressed: () {},
-            ),
-          ),
         ],
       ),
       body: _screens[_selectedIndex],
@@ -93,6 +99,105 @@ class _HomeScreenState extends State<HomeScreen> {
             setState(() => _selectedIndex = index);
           }
         },
+      ),
+    );
+  }
+
+  Future<void> _showCreateGroupDialog(BuildContext context, List<UserModel> friends) async {
+    final currentUserId = context.read<UserProvider>().user?.id ?? '';
+    final nameController = TextEditingController();
+    final selected = <String>{};
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setInner) => AlertDialog(
+          title: const Text('Grup nou'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nume grup',
+                    border: OutlineInputBorder(),
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 12),
+                const Text('Adaugă prieteni:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 6),
+                if (friends.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('Nu ai prieteni de adăugat.',
+                        style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: friends.length,
+                      itemBuilder: (_, i) {
+                        final f = friends[i];
+                        final isSelected = selected.contains(f.id);
+                        return CheckboxListTile(
+                          dense: true,
+                          title: Text(f.displayName ?? f.email,
+                              style: const TextStyle(fontSize: 14)),
+                          value: isSelected,
+                          onChanged: (_) => setInner(() {
+                            if (isSelected) {
+                              selected.remove(f.id);
+                            } else {
+                              selected.add(f.id);
+                            }
+                          }),
+                          secondary: CircleAvatar(
+                            radius: 16,
+                            backgroundImage: f.photoUrl != null ? NetworkImage(f.photoUrl!) : null,
+                            child: f.photoUrl == null ? const Icon(Icons.person, size: 16) : null,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Anulează'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  await MessagingRepository().createGroupConversation(currentUserId, selected.toList(), name);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Grup creat cu succes!')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Eroare: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Crează'),
+            ),
+          ],
+        ),
       ),
     );
   }

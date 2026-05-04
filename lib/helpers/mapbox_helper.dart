@@ -8,11 +8,35 @@ class MapboxHelper {
   static const String _blueLayerId = 'country-boundaries copy';
 
   static final List<String> _visitedIsoCodes = [];
+  static String? _detectedBorderLayerId;
 
-  /// Nu mai e nevoie de promoteId, folosim filtre directe pe layer
   static Future<void> initFeatureState(MapboxMap map) async {
-    // Aplicăm filtrul inițial (gol - nicio țară exclusă încă)
+    await _detectBorderLayer(map);
     await _applyFilter(map);
+  }
+
+  /// Găsește automat layer-ul de borduri (line) care folosește același source
+  static Future<void> _detectBorderLayer(MapboxMap map) async {
+    try {
+      final layers = await map.style.getStyleLayers();
+      for (final layer in layers) {
+        final layerId = layer?.id;
+        if (layerId == null || layerId == _blueLayerId) continue;
+        try {
+          final sourceLayerProp = await map.style.getStyleLayerProperty(layerId, 'source-layer');
+          final sourceProp = await map.style.getStyleLayerProperty(layerId, 'source');
+          final sourceLayerVal = sourceLayerProp.value?.toString() ?? '';
+          final sourceVal = sourceProp.value?.toString() ?? '';
+          if (sourceLayerVal.contains(_sourceLayer) && sourceVal.contains(_sourceId)) {
+            _detectedBorderLayerId = layerId;
+            debugPrint('[DEBUG] Border layer detectat: $layerId');
+            break;
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('[DEBUG] Nu s-a putut detecta border layer: $e');
+    }
   }
 
   /// Elimină țările vizitate din layer-ul albastru prin filter
@@ -33,15 +57,10 @@ class MapboxHelper {
 
   static Future<void> _applyFilter(MapboxMap map) async {
     try {
+      final String filterJson;
       if (_visitedIsoCodes.isEmpty) {
-        // Nicio țară vizitată — afișează totul normal
-        await map.style.setStyleLayerProperty(
-          _blueLayerId,
-          'filter',
-          json.encode(['all']),
-        );
+        filterJson = json.encode(['all']);
       } else {
-        // Exclude toate țările vizitate din layer-ul albastru
         final List<dynamic> filterExpression = [
           'all',
           ...(_visitedIsoCodes.map((iso) => [
@@ -50,13 +69,18 @@ class MapboxHelper {
                 iso,
               ]))
         ];
-
-        await map.style.setStyleLayerProperty(
-          _blueLayerId,
-          'filter',
-          json.encode(filterExpression),
-        );
+        filterJson = json.encode(filterExpression);
         debugPrint('[DEBUG] Filtru aplicat pentru: $_visitedIsoCodes');
+      }
+
+      await map.style.setStyleLayerProperty(_blueLayerId, 'filter', filterJson);
+
+      // Aplică același filtru și pe layer-ul de borduri (dacă a fost detectat)
+      if (_detectedBorderLayerId != null) {
+        try {
+          await map.style.setStyleLayerProperty(
+              _detectedBorderLayerId!, 'filter', filterJson);
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('[DEBUG] Eroare la aplicarea filtrului: $e');

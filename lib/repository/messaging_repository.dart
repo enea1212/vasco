@@ -4,7 +4,6 @@ import '../models/message_model.dart';
 class MessagingRepository {
   final _db = FirebaseFirestore.instance;
 
-  // ID-ul conversației este deterministic: userId1_userId2 (sortat alfabetic)
   String conversationId(String uid1, String uid2) {
     final sorted = [uid1, uid2]..sort();
     return '${sorted[0]}_${sorted[1]}';
@@ -20,6 +19,7 @@ class MessagingRepository {
     if (!snap.exists) {
       await ref.set({
         'participantIds': [currentUserId, otherUserId],
+        'isGroup': false,
         'lastMessage': '',
         'lastMessageTime': null,
         'lastMessageSenderId': '',
@@ -30,14 +30,39 @@ class MessagingRepository {
     return convId;
   }
 
+  Future<String> createGroupConversation(
+    String currentUserId,
+    List<String> memberIds,
+    String name,
+  ) async {
+    final allParticipants = [currentUserId, ...memberIds];
+    final ref = _db.collection('conversations').doc();
+    await ref.set({
+      'participantIds': allParticipants,
+      'isGroup': true,
+      'name': name.trim(),
+      'lastMessage': '',
+      'lastMessageTime': null,
+      'lastMessageSenderId': '',
+      'unreadCount': {for (final id in allParticipants) id: 0},
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
   Future<void> sendMessage(
     String convId,
     String senderId,
     String otherUserId,
-    String text,
-  ) async {
+    String text, {
+    List<String>? allParticipantIds,
+  }) async {
     final convRef = _db.collection('conversations').doc(convId);
     final msgRef = convRef.collection('messages').doc();
+
+    final recipients = allParticipantIds != null
+        ? allParticipantIds.where((id) => id != senderId).toList()
+        : [otherUserId];
 
     final batch = _db.batch();
     batch.set(msgRef, {
@@ -49,7 +74,7 @@ class MessagingRepository {
       'lastMessage': text,
       'lastMessageTime': FieldValue.serverTimestamp(),
       'lastMessageSenderId': senderId,
-      'unreadCount.$otherUserId': FieldValue.increment(1),
+      for (final id in recipients) 'unreadCount.$id': FieldValue.increment(1),
     });
     await batch.commit();
   }
@@ -63,7 +88,6 @@ class MessagingRepository {
       final convs = snap.docs
           .map((doc) => ConversationModel.fromDoc(doc))
           .toList();
-      // Sortare după ultimul mesaj (descrescător)
       convs.sort((a, b) {
         if (a.lastMessageTime == null) return 1;
         if (b.lastMessageTime == null) return -1;

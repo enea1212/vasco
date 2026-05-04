@@ -335,7 +335,7 @@ class _ConvTileState extends State<_ConvTile> {
   @override
   void initState() {
     super.initState();
-    _loadOtherUser();
+    if (!widget.conv.isGroup) _loadOtherUser();
   }
 
   Future<void> _loadOtherUser() async {
@@ -361,26 +361,44 @@ class _ConvTileState extends State<_ConvTile> {
   Widget build(BuildContext context) {
     final conv = widget.conv;
     final unread = conv.unreadFor(widget.currentUserId);
-    final otherId = conv.participantIds.firstWhere(
-      (id) => id != widget.currentUserId,
-      orElse: () => '',
-    );
-    final name = _otherUser?.displayName ?? '…';
-    final photo = _otherUser?.photoUrl;
+
+    final String name;
+    final String? photo;
+    final String otherId;
+
+    if (conv.isGroup) {
+      name = conv.name ?? 'Grup';
+      photo = null;
+      otherId = '';
+    } else {
+      otherId = conv.participantIds.firstWhere(
+        (id) => id != widget.currentUserId,
+        orElse: () => '',
+      );
+      name = _otherUser?.displayName ?? '…';
+      photo = _otherUser?.photoUrl;
+    }
 
     return InkWell(
       onTap: () {
-        if (otherId.isEmpty) return;
+        if (!conv.isGroup && otherId.isEmpty) return;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              conversationId: conv.id,
-              currentUserId: widget.currentUserId,
-              otherUserId: otherId,
-              otherUserName: name,
-              otherUserPhoto: photo,
-            ),
+            builder: (_) => conv.isGroup
+                ? ChatScreen(
+                    conversationId: conv.id,
+                    currentUserId: widget.currentUserId,
+                    groupName: name,
+                    groupParticipantIds: conv.participantIds,
+                  )
+                : ChatScreen(
+                    conversationId: conv.id,
+                    currentUserId: widget.currentUserId,
+                    otherUserId: otherId,
+                    otherUserName: name,
+                    otherUserPhoto: photo,
+                  ),
           ),
         );
       },
@@ -390,16 +408,27 @@ class _ConvTileState extends State<_ConvTile> {
           children: [
             Stack(
               children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundImage:
-                      photo != null ? NetworkImage(photo) : null,
-                  backgroundColor: const Color(0xFFF3F4F6),
-                  child: photo == null
-                      ? const Icon(Icons.person_rounded,
-                          color: Color(0xFF9CA3AF))
-                      : null,
-                ),
+                conv.isGroup
+                    ? Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        child: const Icon(Icons.group_rounded,
+                            color: Color(0xFF4F46E5), size: 26),
+                      )
+                    : CircleAvatar(
+                        radius: 26,
+                        backgroundImage:
+                            photo != null ? NetworkImage(photo) : null,
+                        backgroundColor: const Color(0xFFF3F4F6),
+                        child: photo == null
+                            ? const Icon(Icons.person_rounded,
+                                color: Color(0xFF9CA3AF))
+                            : null,
+                      ),
                 if (unread > 0)
                   Positioned(
                     right: 0,

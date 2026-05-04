@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:vasco/services/location_groups_service.dart';
 import 'package:vasco/repository/edit_profile.dart';
-import 'package:vasco/features/auth/screens/login_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -15,6 +15,39 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _privacyLoading = false;
+  bool? _locationSharing;
+  bool _locationLoading = false;
+  String? _loadedForUserId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = context.read<UserProvider>().user;
+    if (user != null && _loadedForUserId != user.id) {
+      _loadedForUserId = user.id;
+      _loadVisibility(user.id);
+    }
+  }
+
+  Future<void> _loadVisibility(String uid) async {
+    try {
+      final vis = await LocationGroupsService.getVisibility(uid);
+      if (mounted) setState(() => _locationSharing = vis != 'none');
+    } catch (_) {
+      if (mounted) setState(() => _locationSharing = true);
+    }
+  }
+
+  Future<void> _toggleLocationSharing(String uid) async {
+    final current = _locationSharing ?? true;
+    setState(() => _locationLoading = true);
+    try {
+      await LocationGroupsService.setVisibility(uid, current ? 'none' : 'all');
+      if (mounted) setState(() => _locationSharing = !current);
+    } finally {
+      if (mounted) setState(() => _locationLoading = false);
+    }
+  }
 
   Future<void> _togglePrivacy(String uid, bool currentValue) async {
     setState(() => _privacyLoading = true);
@@ -121,6 +154,75 @@ class _SettingsPageState extends State<SettingsPage> {
             'CONFIDENȚIALITATE',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 1.2),
           ),
+          const SizedBox(height: 8),
+          if (user != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.visibility_rounded,
+                        color: Color(0xFF4F46E5), size: 19),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Vizibilitate locație',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        Text(
+                          _locationSharing == true
+                              ? 'Locația ta e vizibilă prietenilor'
+                              : 'Locația ta e ascunsă',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _locationLoading || _locationSharing == null
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Color(0xFF4F46E5)),
+                        )
+                      : Switch(
+                          value: _locationSharing!,
+                          onChanged: (_) => _toggleLocationSharing(user.id),
+                          activeThumbColor: const Color(0xFF4F46E5),
+                          activeTrackColor: const Color(0xFFEDE9FE),
+                        ),
+                ],
+              ),
+            ),
           const SizedBox(height: 8),
           if (user != null)
             Container(
@@ -265,6 +367,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _confirmLogout(BuildContext context, AuthService authService) {
+    final nav = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -314,14 +417,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       onPressed: () async {
                         Navigator.pop(ctx);
                         await authService.signOut();
-                        if (ctx.mounted) {
-                          Navigator.of(ctx, rootNavigator: true)
-                              .pushAndRemoveUntil(
-                            MaterialPageRoute(
-                                builder: (_) => const LoginScreen()),
-                            (_) => false,
-                          );
-                        }
+                        nav.popUntil((route) => route.isFirst);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),

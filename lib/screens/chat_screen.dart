@@ -12,14 +12,18 @@ class ChatScreen extends StatefulWidget {
   final String otherUserId;
   final String otherUserName;
   final String? otherUserPhoto;
+  final String? groupName;
+  final List<String>? groupParticipantIds;
 
   const ChatScreen({
     super.key,
     required this.conversationId,
     required this.currentUserId,
-    required this.otherUserId,
-    required this.otherUserName,
+    this.otherUserId = '',
+    this.otherUserName = '',
     this.otherUserPhoto,
+    this.groupName,
+    this.groupParticipantIds,
   });
 
   @override
@@ -80,6 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
         widget.currentUserId,
         widget.otherUserId,
         text,
+        allParticipantIds: widget.groupParticipantIds,
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -95,43 +100,67 @@ class _ChatScreenState extends State<ChatScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         titleSpacing: 0,
-        title: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UserProfileScreen(
-                userId: widget.otherUserId,
-                initialDisplayName: widget.otherUserName,
-                initialPhotoUrl: widget.otherUserPhoto,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundImage: widget.otherUserPhoto != null
-                    ? NetworkImage(widget.otherUserPhoto!)
-                    : null,
-                backgroundColor: const Color(0xFFF3F4F6),
-                child: widget.otherUserPhoto == null
-                    ? const Icon(Icons.person_rounded,
-                        size: 18, color: Color(0xFF9CA3AF))
-                    : null,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                widget.otherUserName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  color: Color(0xFF111827),
+        title: widget.groupName != null
+            ? Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(Icons.group_rounded,
+                        size: 18, color: Color(0xFF4F46E5)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.groupName!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ],
+              )
+            : GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(
+                      userId: widget.otherUserId,
+                      initialDisplayName: widget.otherUserName,
+                      initialPhotoUrl: widget.otherUserPhoto,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundImage: widget.otherUserPhoto != null
+                          ? NetworkImage(widget.otherUserPhoto!)
+                          : null,
+                      backgroundColor: const Color(0xFFF3F4F6),
+                      child: widget.otherUserPhoto == null
+                          ? const Icon(Icons.person_rounded,
+                              size: 18, color: Color(0xFF9CA3AF))
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      widget.otherUserName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
       ),
       body: Column(
         children: [

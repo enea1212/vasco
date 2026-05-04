@@ -226,6 +226,95 @@ exports.addComment = onCall(async (request) => {
   return { commentId: commentRef.id };
 });
 
+// ─── LOCATION GROUPS ─────────────────────────────────────────────────────────
+
+exports.createLocationGroup = onCall(async (request) => {
+  const uid = requireAuth(request.auth);
+  const { name, memberIds = [] } = request.data;
+
+  if (!name?.trim()) throw new HttpsError("invalid-argument", "Numele grupului este necesar.");
+  if (name.trim().length > 50) throw new HttpsError("invalid-argument", "Numele este prea lung (max 50 caractere).");
+  if (!Array.isArray(memberIds) || memberIds.length > 100) {
+    throw new HttpsError("invalid-argument", "Lista de membri este invalidă.");
+  }
+
+  const friendDocs = await Promise.all(
+    memberIds.map((id) =>
+      db.collection("users").doc(uid).collection("friends").doc(id).get()
+    )
+  );
+  if (friendDocs.some((d) => !d.exists)) {
+    throw new HttpsError("invalid-argument", "Unii utilizatori nu sunt prieteni.");
+  }
+
+  const groupRef = db.collection("users").doc(uid).collection("location_groups").doc();
+  const batch = db.batch();
+  batch.set(groupRef, { name: name.trim(), createdAt: Timestamp.now() });
+  for (const memberId of memberIds) {
+    batch.set(groupRef.collection("members").doc(memberId), {
+      userId: memberId,
+      addedAt: Timestamp.now(),
+    });
+  }
+  await batch.commit();
+  return { groupId: groupRef.id };
+});
+
+exports.deleteLocationGroup = onCall(async (request) => {
+  const uid = requireAuth(request.auth);
+  const { groupId } = request.data;
+  if (!groupId) throw new HttpsError("invalid-argument", "groupId este necesar.");
+
+  const groupRef = db.collection("users").doc(uid).collection("location_groups").doc(groupId);
+  const groupDoc = await groupRef.get();
+  if (!groupDoc.exists) throw new HttpsError("not-found", "Grupul nu există.");
+
+  const membersSnap = await groupRef.collection("members").get();
+  const batch = db.batch();
+  membersSnap.docs.forEach((d) => batch.delete(d.ref));
+  batch.delete(groupRef);
+  await batch.commit();
+  return { success: true };
+});
+
+exports.addGroupMember = onCall(async (request) => {
+  const uid = requireAuth(request.auth);
+  const { groupId, memberId } = request.data;
+  if (!groupId || !memberId) {
+    throw new HttpsError("invalid-argument", "groupId și memberId sunt necesare.");
+  }
+
+  const [groupDoc, friendDoc] = await Promise.all([
+    db.collection("users").doc(uid).collection("location_groups").doc(groupId).get(),
+    db.collection("users").doc(uid).collection("friends").doc(memberId).get(),
+  ]);
+  if (!groupDoc.exists) throw new HttpsError("not-found", "Grupul nu există.");
+  if (!friendDoc.exists) throw new HttpsError("failed-precondition", "Utilizatorul nu este prieten.");
+
+  await groupDoc.ref.collection("members").doc(memberId).set({
+    userId: memberId,
+    addedAt: Timestamp.now(),
+  });
+  return { success: true };
+});
+
+exports.removeGroupMember = onCall(async (request) => {
+  const uid = requireAuth(request.auth);
+  const { groupId, memberId } = request.data;
+  if (!groupId || !memberId) {
+    throw new HttpsError("invalid-argument", "groupId și memberId sunt necesare.");
+  }
+
+  const groupDoc = await db
+    .collection("users").doc(uid).collection("location_groups").doc(groupId).get();
+  if (!groupDoc.exists) throw new HttpsError("not-found", "Grupul nu există.");
+
+  await groupDoc.ref.collection("members").doc(memberId).delete();
+  return { success: true };
+});
+
+// ─── COMMENTS ─────────────────────────────────────────────────────────────────
+
 exports.deleteComment = onCall(async (request) => {
   const callerUid = requireAuth(request.auth);
   const { postId, commentId, collection: col = "location_photos" } = request.data;
