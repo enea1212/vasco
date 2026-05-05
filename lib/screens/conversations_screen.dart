@@ -109,13 +109,21 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
   Widget _buildConversationsList(List<ConversationModel> conversations,
       String currentUserId, List<UserModel> friends) {
-    if (conversations.isEmpty && friends.isEmpty) {
+    final validConversations = conversations.where((c) {
+      final otherId = c.participantIds.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+      return otherId.isNotEmpty && otherId != currentUserId;
+    }).toList();
+
+    if (validConversations.isEmpty && friends.isEmpty) {
       return _emptyState();
     }
 
     return CustomScrollView(
       slivers: [
-        if (conversations.isNotEmpty) ...[
+        if (validConversations.isNotEmpty) ...[
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -133,11 +141,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (_, i) {
-                final isLast = i == conversations.length - 1;
+                final isLast = i == validConversations.length - 1;
                 return Column(
                   children: [
                     _ConvTile(
-                      conv: conversations[i],
+                      conv: validConversations[i],
                       currentUserId: currentUserId,
                     ),
                     if (!isLast)
@@ -145,7 +153,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                   ],
                 );
               },
-              childCount: conversations.length,
+              childCount: validConversations.length,
             ),
           ),
         ],

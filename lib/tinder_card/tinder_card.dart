@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class TinderCard extends StatelessWidget {
   final Map<String, dynamic> profile;
 
-  const TinderCard({Key? key, required this.profile}) : super(key: key);
+  const TinderCard({super.key, required this.profile});
 
   @override
   Widget build(BuildContext context) {

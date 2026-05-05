@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/tinder_card/tinder_card.dart';
 import 'package:vasco/tinder_card/match_dialog.dart';
 import 'package:vasco/tinder_services/tinder_location_service.dart';
+import 'package:vasco/screens/my_matches_screen.dart';
 
 class SwipeScreen extends StatefulWidget {
+  const SwipeScreen({super.key});
+
   @override
   _SwipeScreenState createState() => _SwipeScreenState();
 }
@@ -17,17 +22,33 @@ class _SwipeScreenState extends State<SwipeScreen> {
   final CardSwiperController controller = CardSwiperController();
   List<Map<String, dynamic>> recommendations = [];
   bool isLoading = true;
+  int _matchCount = 0;
+  StreamSubscription<QuerySnapshot>? _matchSub;
 
   @override
   void initState() {
     super.initState();
     _updateLocationThenLoad();
+    _subscribeToMatches();
   }
 
   @override
   void dispose() {
+    _matchSub?.cancel();
     controller.dispose();
     super.dispose();
+  }
+
+  void _subscribeToMatches() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    _matchSub = FirebaseFirestore.instance
+        .collection('matches')
+        .where('users', arrayContains: uid)
+        .snapshots()
+        .listen((snap) {
+          if (mounted) setState(() => _matchCount = snap.docs.length);
+        });
   }
 
   Future<void> _updateLocationThenLoad() async {
@@ -125,6 +146,44 @@ class _SwipeScreenState extends State<SwipeScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.favorite_rounded),
+                tooltip: 'Matchurile mele',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyMatchesScreen()),
+                ),
+              ),
+              if (_matchCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDB2777),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    child: Text(
+                      _matchCount > 99 ? '99+' : '$_matchCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -157,7 +216,13 @@ class _SwipeScreenState extends State<SwipeScreen> {
                             controller: controller,
                             cardsCount: recommendations.length,
                             numberOfCardsDisplayed: recommendations.length == 1 ? 1 : 2,
+                            isLoop: false,
                             onSwipe: _onSwipe,
+                            onEnd: () {
+                              if (mounted) {
+                                setState(() => recommendations = []);
+                              }
+                            },
                             cardBuilder: (context, index) =>
                                 TinderCard(profile: recommendations[index]),
                           ),

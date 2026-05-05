@@ -261,6 +261,7 @@ exports.recordSwipe = onCall(async (request) => {
   if (!toUserId || typeof isLike !== 'boolean') {
     throw new HttpsError('invalid-argument', 'toUserId și isLike sunt necesare.');
   }
+  if (uid === toUserId) return { matched: false };
 
   // ID determinist — nu mai avem nevoie de index compus
   const swipeId = `${uid}_${toUserId}`;
@@ -433,4 +434,42 @@ exports.getRecommendations = onCall(async (request) => {
   }
 
   return recommendedUsers.slice(0, 20);
+});
+
+// ─── MY MATCHES ───────────────────────────────────────────────────────────────
+
+exports.getMyMatches = onCall(async (request) => {
+  const uid = requireAuth(request.auth);
+
+  const matchesSnap = await db
+    .collection('matches')
+    .where('users', 'array-contains', uid)
+    .get();
+
+  if (matchesSnap.empty) return { matches: [] };
+
+  const results = await Promise.all(
+    matchesSnap.docs.map(async (doc) => {
+      const data = doc.data();
+      const otherUserId = data.users.find((id) => id !== uid);
+
+      const userSnap = await db.collection('users').doc(otherUserId).get();
+      const user = userSnap.data() || {};
+
+      return {
+        matchId: doc.id,
+        conversationId: doc.id,
+        userId: otherUserId,
+        displayName: user.displayName ?? 'Utilizator',
+        photoUrl: user.photoUrl ?? null,
+        bio: user.bio ?? null,
+        age: calcAge(user.birthDate),
+        timestamp: data.timestamp?.toMillis() ?? null,
+      };
+    })
+  );
+
+  results.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+
+  return { matches: results };
 });

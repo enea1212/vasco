@@ -18,7 +18,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/user_provider.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({Key? key}) : super(key: key);
+  const MapPage({super.key});
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -221,8 +221,8 @@ class _MapPageState extends State<MapPage> {
     await Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
-        pageBuilder: (_, __, ___) => StoryViewer(photos: nearbyPhotos),
-        transitionsBuilder: (_, animation, __, child) =>
+        pageBuilder: (_, _, _) => StoryViewer(photos: nearbyPhotos),
+        transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
     );

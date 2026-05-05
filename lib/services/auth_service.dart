@@ -179,7 +179,7 @@ class AuthService {
       await user.delete();
 
       await signOut();
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException {
       // Tratăm erori specifice (ex: parolă greșită la re-autentificare)
       throw Exception('A apărut o eroare la ștergerea contului.');
     }

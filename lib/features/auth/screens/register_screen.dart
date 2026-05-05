@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:vasco/providers/auth_provider.dart';
-import 'package:vasco/services/auth_service.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {

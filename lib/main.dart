@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
@@ -12,7 +11,6 @@ import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/repository/messaging_repository.dart';
 import 'package:vasco/providers/messaging_provider.dart';
 import 'package:vasco/screens/home_screen.dart';
-import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/models/user_model.dart';
