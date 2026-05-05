@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/tinder_card/tinder_card.dart';
 import 'package:vasco/tinder_card/match_dialog.dart';
+import 'package:vasco/tinder_card/profile_detail_sheet.dart';
 import 'package:vasco/tinder_services/tinder_location_service.dart';
 import 'package:vasco/screens/my_matches_screen.dart';
 
@@ -142,7 +143,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Vasco Dating',
+          'Vasco Meet',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -151,8 +152,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
             alignment: Alignment.center,
             children: [
               IconButton(
-                icon: const Icon(Icons.favorite_rounded),
-                tooltip: 'Matchurile mele',
+                icon: const Icon(Icons.public),
+                tooltip: 'Conexiunile mele',
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const MyMatchesScreen()),
@@ -223,8 +224,13 @@ class _SwipeScreenState extends State<SwipeScreen> {
                                 setState(() => recommendations = []);
                               }
                             },
-                            cardBuilder: (context, index) =>
-                                TinderCard(profile: recommendations[index]),
+                            cardBuilder: (context, index) => TinderCard(
+                              profile: recommendations[index],
+                              onTap: () => showProfileDetail(
+                                context,
+                                recommendations[index],
+                              ),
+                            ),
                           ),
                         ),
                         Padding(

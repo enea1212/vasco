@@ -95,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           MaterialPageRoute(
                               builder: (_) => const DatingPreferencesScreen()),
                         ),
-                        icon: const Icon(Icons.favorite_outline_rounded, size: 16),
+                        icon: const Icon(Icons.search, size: 16),
                         label: const Text('Intalneste persoane noi '),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFE11D48),

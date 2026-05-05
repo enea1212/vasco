@@ -100,7 +100,7 @@ class SettingsPage extends StatelessWidget {
             icon: Icons.favorite_outline_rounded,
             iconBg: const Color(0xFFFFF1F2),
             iconColor: const Color(0xFFE11D48),
-            label: 'Preferințe dating',
+            label: 'Interesele Mele',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const DatingPreferencesScreen()),

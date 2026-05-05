@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 class TinderCard extends StatelessWidget {
   final Map<String, dynamic> profile;
+  final VoidCallback? onTap;
 
-  const TinderCard({super.key, required this.profile});
+  const TinderCard({super.key, required this.profile, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -11,10 +12,17 @@ class TinderCard extends StatelessWidget {
     final age = profile['age'];
     final distance = profile['distance'];
     final bio = profile['bio'] as String?;
-    final photoUrl = profile['photoUrl'] as String?;
+    final photos = (profile['photos'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    final photoUrl = photos.isNotEmpty
+        ? photos.first['imageUrl'] as String?
+        : profile['photoUrl'] as String?;
     final interests = List<String>.from(profile['interests'] ?? []);
 
-    return ClipRRect(
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Stack(
         fit: StackFit.expand,
@@ -122,6 +130,7 @@ class TinderCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),   // ClipRRect
+    );   // GestureDetector
   }
 }

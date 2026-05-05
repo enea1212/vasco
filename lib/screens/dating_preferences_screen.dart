@@ -16,6 +16,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   String? _interestedIn;
   final Set<String> _selectedGoals = {};
   bool _isSaving = false;
+  double _minAge = 18;
+  double _maxAge = 35;
+  double _maxDistance = 50;
 
   static const _goals = [
     ('parties', Icons.celebration_outlined, 'Petreceri'),
@@ -42,6 +45,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
     setState(() {
       _myGender = user.gender;
       _interestedIn = user.preferences?['interestedIn'];
+      _minAge = (user.preferences?['minAge'] as num?)?.toDouble() ?? 18;
+      _maxAge = (user.preferences?['maxAge'] as num?)?.toDouble() ?? 35;
+      _maxDistance = (user.preferences?['maxDistance'] as num?)?.toDouble() ?? 50;
       final saved = user.interests ?? [];
       _selectedGoals
         ..clear()
@@ -63,6 +69,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         'gender': _myGender,
         'interests': _selectedGoals.toList(),
         'preferences.interestedIn': _interestedIn,
+        'preferences.minAge': _minAge.round(),
+        'preferences.maxAge': _maxAge.round(),
+        'preferences.maxDistance': _maxDistance.round(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,7 +94,7 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Preferințe dating'),
+        title: const Text('Despre Mine'),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -106,6 +115,10 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
                   _sectionTitle('Vreau să întâlnesc'),
                   const SizedBox(height: 12),
                   _interestedInRow(),
+                  const SizedBox(height: 28),
+                  _ageRangeSection(),
+                  const SizedBox(height: 28),
+                  _distanceSection(),
                   const SizedBox(height: 28),
                   _sectionTitle('De ce vreau să cunosc lume nouă'),
                   const SizedBox(height: 4),
@@ -239,6 +252,104 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _ageRangeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _sectionTitle('Interval de vârstă'),
+            Text(
+              '${_minAge.round()} – ${_maxAge.round()} ani',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4F46E5),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: const Color(0xFF4F46E5),
+            inactiveTrackColor: const Color(0xFFE5E7EB),
+            thumbColor: const Color(0xFF4F46E5),
+            overlayColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+            rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 10),
+            trackHeight: 4,
+          ),
+          child: RangeSlider(
+            values: RangeValues(_minAge, _maxAge),
+            min: 18,
+            max: 60,
+            divisions: 42,
+            onChanged: (v) => setState(() {
+              _minAge = v.start;
+              _maxAge = v.end;
+            }),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: const [
+            Text('18', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+            Text('60', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _distanceSection() {
+    final dist = _maxDistance.round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _sectionTitle('Distanță maximă'),
+            Text(
+              '$dist km',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4F46E5),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: const Color(0xFF4F46E5),
+            inactiveTrackColor: const Color(0xFFE5E7EB),
+            thumbColor: const Color(0xFF4F46E5),
+            overlayColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            value: _maxDistance,
+            min: 5,
+            max: 150,
+            divisions: 29,
+            onChanged: (v) => setState(() => _maxDistance = v),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: const [
+            Text('5 km', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+            Text('150 km', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+          ],
+        ),
+      ],
     );
   }
 

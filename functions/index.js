@@ -433,7 +433,33 @@ exports.getRecommendations = onCall(async (request) => {
     }
   }
 
-  return recommendedUsers.slice(0, 20);
+  const top20 = recommendedUsers.slice(0, 20);
+
+  // Fetch pozele postate de fiecare user recomandat
+  const top20WithPhotos = await Promise.all(
+    top20.map(async (user) => {
+      const postsSnap = await db.collection('location_photos')
+        .where('userId', '==', user.id)
+        .get();
+
+      const photos = postsSnap.docs
+        .filter(d => d.data().imageUrl)
+        .sort((a, b) => {
+          const aT = a.data().createdAt?.toMillis() ?? 0;
+          const bT = b.data().createdAt?.toMillis() ?? 0;
+          return bT - aT;
+        })
+        .map(d => ({
+          imageUrl: d.data().imageUrl,
+          locationName: d.data().locationName ?? d.data().countryName ?? null,
+        }))
+        .slice(0, 6);
+
+      return { ...user, photos };
+    })
+  );
+
+  return top20WithPhotos;
 });
 
 // ─── MY MATCHES ───────────────────────────────────────────────────────────────
