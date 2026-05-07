@@ -112,10 +112,19 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
   Widget _buildConversationsList(List<ConversationModel> conversations,
       String currentUserId, List<UserModel> friends) {
-    if (conversations.isEmpty && friends.isEmpty) {
+    final validConversations = conversations.where((c) {
+      final otherId = c.participantIds.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+      return otherId.isNotEmpty && otherId != currentUserId;
+    }).toList();
+
+    if (validConversations.isEmpty && friends.isEmpty) {
       return _emptyState();
     }
 
+<<<<<<< HEAD
     return ScrollConfiguration(
       behavior: const NoGlowScrollBehavior(),
       child: CustomScrollView(
@@ -177,6 +186,41 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                 },
                 childCount: conversations.length,
               ),
+=======
+    return CustomScrollView(
+      slivers: [
+        if (validConversations.isNotEmpty) ...[
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'Recente',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (_, i) {
+                final isLast = i == validConversations.length - 1;
+                return Column(
+                  children: [
+                    _ConvTile(
+                      conv: validConversations[i],
+                      currentUserId: currentUserId,
+                    ),
+                    if (!isLast)
+                      const Divider(height: 1, indent: 80, endIndent: 16),
+                  ],
+                );
+              },
+              childCount: validConversations.length,
+>>>>>>> origin/tinder
             ),
           ],
           if (friends.isNotEmpty) ...[

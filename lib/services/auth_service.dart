@@ -184,6 +184,10 @@ class AuthService {
 
       await signOut();
     } on FirebaseAuthException {
+<<<<<<< HEAD
+=======
+      // Tratăm erori specifice (ex: parolă greșită la re-autentificare)
+>>>>>>> origin/tinder
       throw Exception('A apărut o eroare la ștergerea contului.');
     }
   }

@@ -33,6 +33,8 @@ class MyPhotoService {
       'longitude': longitude,
       'imageUrl': downloadUrl,
       'createdAt': FieldValue.serverTimestamp(),
+      'likesCount': 0,
+      'commentsCount': 0,
     };
     if (countryName != null) data['countryName'] = countryName;
     if (locationName != null) data['locationName'] = locationName;

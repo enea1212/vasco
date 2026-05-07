@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class StoryViewer extends StatefulWidget {
   final List<dynamic> photos;
-  const StoryViewer({Key? key, required this.photos}) : super(key: key);
+  const StoryViewer({super.key, required this.photos});
 
   @override
   State<StoryViewer> createState() => _StoryViewerState();

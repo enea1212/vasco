@@ -1,10 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'package:vasco/providers/auth_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/providers/photos_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/user_repository.dart';
 import 'package:vasco/repository/friends_repository.dart';
@@ -12,9 +12,9 @@ import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/repository/messaging_repository.dart';
 import 'package:vasco/providers/messaging_provider.dart';
 import 'package:vasco/screens/home_screen.dart';
-import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:vasco/models/user_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +32,7 @@ Future<void> main() async {
           update: (context, authService, previous) => AuthViewModel(authService),
         ),
         ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
+        ChangeNotifierProvider<PhotosProvider>(create: (_) => PhotosProvider()),
         Provider<FriendsRepository>(create: (_) => FriendsRepository()),
         ChangeNotifierProvider<FriendsProvider>(create: (_) => FriendsProvider()),
         Provider<MessagingRepository>(create: (_) => MessagingRepository()),
@@ -136,8 +137,8 @@ class MyApp extends StatelessWidget {
           space: 1,
         ),
       ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
+      home: StreamBuilder<UserModel?>(
+        stream: context.read<AuthService>().authStateChanges(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
@@ -152,9 +153,10 @@ class MyApp extends StatelessWidget {
           }
 
           if (snapshot.hasData && snapshot.data != null) {
-            final String uid = snapshot.data!.uid;
+            final String uid = snapshot.data!.id;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.read<UserProvider>().listenToUser(uid);
+              context.read<PhotosProvider>().listenToUserPhotos(uid);
               context.read<FriendsProvider>().init(uid);
               context.read<MessagingProvider>().init(uid);
             });

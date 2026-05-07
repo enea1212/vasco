@@ -19,6 +19,7 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/user_provider.dart';
 
+
 class MapPage extends StatefulWidget {
   final String? userId;
   const MapPage({Key? key, this.userId}) : super(key: key);

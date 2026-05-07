@@ -23,7 +23,12 @@ import 'package:vasco/services/geocoding_service.dart';
 import 'package:vasco/widgets/comments_sheet.dart';
 import '../widget/custom_bottom_nav_bar.dart';
 import 'package:vasco/screens/map_page.dart';
+<<<<<<< HEAD
 import 'package:vasco/services/spotify_service.dart';
+import 'package:vasco/screens/swipe_screen.dart';
+=======
+import 'package:vasco/screens/swipe_screen.dart';
+>>>>>>> origin/tinder
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Container(),                  // 3 - Share (buton central)
       MapPage(),                    // 4 - Map
       const ProfileScreen(),        // 5 - Profile
+      SwipeScreen(),                // Index 6
     ];
   }
 

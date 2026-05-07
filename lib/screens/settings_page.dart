@@ -5,6 +5,12 @@ import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/services/location_groups_service.dart';
 import 'package:vasco/repository/edit_profile.dart';
+<<<<<<< HEAD
+=======
+import 'package:vasco/screens/dating_preferences_screen.dart';
+import 'package:vasco/features/auth/screens/login_screen.dart';
+import 'package:vasco/features/auth/screens/login_screen.dart';
+>>>>>>> origin/tinder
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -145,6 +151,17 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _tile(
+            icon: Icons.favorite_outline_rounded,
+            iconBg: const Color(0xFFFFF1F2),
+            iconColor: const Color(0xFFE11D48),
+            label: 'Interesele Mele',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DatingPreferencesScreen()),
             ),
           ),
           const SizedBox(height: 28),
