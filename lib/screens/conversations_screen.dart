@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
+﻿import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'dart:async';
 import 'package:vasco/utils/scroll_utils.dart';
 import 'package:flutter/material.dart';
@@ -124,7 +124,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       return _emptyState();
     }
 
-<<<<<<< HEAD
     return ScrollConfiguration(
       behavior: const NoGlowScrollBehavior(),
       child: CustomScrollView(
@@ -154,7 +153,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             refreshIndicatorExtent: 30,
             builder: buildPullRefreshIndicator,
           ),
-          if (conversations.isNotEmpty) ...[
+          if (validConversations.isNotEmpty) ...[
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -172,11 +171,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) {
-                  final isLast = i == conversations.length - 1;
+                  final isLast = i == validConversations.length - 1;
                   return Column(
                     children: [
                       _ConvTile(
-                        conv: conversations[i],
+                        conv: validConversations[i],
                         currentUserId: currentUserId,
                       ),
                       if (!isLast)
@@ -184,43 +183,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                     ],
                   );
                 },
-                childCount: conversations.length,
+                childCount: validConversations.length,
               ),
-=======
-    return CustomScrollView(
-      slivers: [
-        if (validConversations.isNotEmpty) ...[
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                'Recente',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (_, i) {
-                final isLast = i == validConversations.length - 1;
-                return Column(
-                  children: [
-                    _ConvTile(
-                      conv: validConversations[i],
-                      currentUserId: currentUserId,
-                    ),
-                    if (!isLast)
-                      const Divider(height: 1, indent: 80, endIndent: 16),
-                  ],
-                );
-              },
-              childCount: validConversations.length,
->>>>>>> origin/tinder
             ),
           ],
           if (friends.isNotEmpty) ...[

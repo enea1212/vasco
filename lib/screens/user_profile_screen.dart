@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/repository/edit_profile.dart';
+import 'package:vasco/repository/messaging_repository.dart';
+import 'package:vasco/screens/chat_screen.dart';
 import 'package:vasco/screens/map_page.dart';
 import 'package:vasco/widgets/post_story_viewer.dart';
 
@@ -28,11 +30,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Map<String, dynamic>? _userData;
   bool _loadingUser = true;
   bool _friendActionLoading = false;
+  bool _hasPendingRequest = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPendingRequest());
+  }
+
+  Future<void> _checkPendingRequest() async {
+    final currentUserId = context.read<UserProvider>().user?.id ?? '';
+    if (currentUserId.isEmpty) return;
+    final snap = await FirebaseFirestore.instance
+        .collection('friend_requests')
+        .where('fromUserId', isEqualTo: currentUserId)
+        .where('toUserId', isEqualTo: widget.userId)
+        .where('status', isEqualTo: 'pending')
+        .get();
+    if (mounted) setState(() => _hasPendingRequest = snap.docs.isNotEmpty);
   }
 
   Future<void> _loadUserData() async {
@@ -73,6 +89,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .httpsCallable('sendFriendRequest')
           .call({'toUserId': widget.userId});
       if (mounted) {
+        setState(() => _hasPendingRequest = true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cerere de prietenie trimisă!')),
         );
@@ -81,6 +98,54 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Eroare la trimiterea cererii.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _friendActionLoading = false);
+    }
+  }
+
+  Future<void> _cancelFriendRequest() async {
+    setState(() => _friendActionLoading = true);
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('cancelFriendRequest')
+          .call({'toUserId': widget.userId});
+      if (mounted) setState(() => _hasPendingRequest = false);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Eroare la anularea cererii.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _friendActionLoading = false);
+    }
+  }
+
+  Future<void> _goToChat(String currentUserId) async {
+    setState(() => _friendActionLoading = true);
+    try {
+      final convId = await MessagingRepository()
+          .getOrCreateConversation(currentUserId, widget.userId);
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatScreen(
+              conversationId: convId,
+              currentUserId: currentUserId,
+              otherUserId: widget.userId,
+              otherUserName: _displayName,
+              otherUserPhoto: _photoUrl,
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Eroare la deschiderea chat-ului.')),
         );
       }
     } finally {
@@ -342,37 +407,74 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                         )
                       : isFriend
-                          ? OutlinedButton.icon(
-                              onPressed: _removeFriend,
-                              icon: const Icon(Icons.check_rounded,
-                                  size: 16, color: Colors.white),
-                              label: const Text('Prieteni',
-                                  style: TextStyle(color: Colors.white)),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                    color: Colors.white, width: 1.5),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                minimumSize: const Size(double.infinity, 0),
-                              ),
+                          ? Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _removeFriend,
+                                    icon: const Icon(Icons.person_remove_rounded,
+                                        size: 15, color: Colors.white),
+                                    label: const Text('Unfriend',
+                                        style: TextStyle(color: Colors.white)),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(
+                                          color: Colors.white, width: 1.5),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _goToChat(
+                                        context.read<UserProvider>().user?.id ?? ''),
+                                    icon: const Icon(Icons.chat_rounded, size: 15),
+                                    label: const Text('Mesaj'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: const Color(0xFF4F46E5),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             )
-                          : ElevatedButton.icon(
-                              onPressed: _sendFriendRequest,
-                              icon: const Icon(Icons.person_add_rounded,
-                                  size: 16),
-                              label: const Text('Adaugă prieten'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF4F46E5),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                minimumSize: const Size(double.infinity, 0),
-                              ),
-                            ),
+                          : _hasPendingRequest
+                              ? OutlinedButton.icon(
+                                  onPressed: _cancelFriendRequest,
+                                  icon: const Icon(Icons.hourglass_top_rounded,
+                                      size: 15, color: Colors.white),
+                                  label: const Text('Cerere trimisă',
+                                      style: TextStyle(color: Colors.white)),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                        color: Colors.white.withValues(alpha: 0.6),
+                                        width: 1.5),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    minimumSize: const Size(double.infinity, 0),
+                                  ),
+                                )
+                              : ElevatedButton.icon(
+                                  onPressed: _sendFriendRequest,
+                                  icon: const Icon(Icons.person_add_rounded,
+                                      size: 16),
+                                  label: const Text('Adaugă prieten'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: const Color(0xFF4F46E5),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12)),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 10),
+                                    minimumSize: const Size(double.infinity, 0),
+                                  ),
+                                ),
             ),
 
             const SizedBox(height: 28),

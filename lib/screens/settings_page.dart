@@ -5,12 +5,7 @@ import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/services/location_groups_service.dart';
 import 'package:vasco/repository/edit_profile.dart';
-<<<<<<< HEAD
-=======
 import 'package:vasco/screens/dating_preferences_screen.dart';
-import 'package:vasco/features/auth/screens/login_screen.dart';
-import 'package:vasco/features/auth/screens/login_screen.dart';
->>>>>>> origin/tinder
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});

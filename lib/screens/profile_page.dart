@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vasco/services/spotify_service.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:vasco/utils/scroll_utils.dart';
@@ -7,15 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:vasco/models/user_model.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/providers/photos_provider.dart';
 import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/edit_profile.dart';
-<<<<<<< HEAD
 import 'package:vasco/screens/map_page.dart';
 import 'package:vasco/screens/dating_preferences_screen.dart';
-=======
-import 'package:vasco/screens/dating_preferences_screen.dart';
->>>>>>> origin/tinder
 import 'package:vasco/screens/settings_page.dart';
 import 'package:vasco/widgets/post_story_viewer.dart';
 
@@ -27,7 +22,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-<<<<<<< HEAD
   Stream<QuerySnapshot>? _photosStream;
   String? _streamUid;
 
@@ -58,22 +52,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .orderBy('createdAt', descending: true)
           .snapshots();
       debugPrint('[ProfileScreen] _photosStream set for uid: $uid');
-=======
-@override
-  void initState() {
-    super.initState();
-    // Declanșăm ascultarea pozelor pentru utilizatorul curent
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userId = context.read<UserProvider>().user?.id;
-      if (userId != null) {
-        context.read<PhotosProvider>().listenToUserPhotos(userId);
-      }
->>>>>>> origin/tinder
     });
   }
 
   @override
-<<<<<<< HEAD
   void dispose() {
     final userProvider = context.read<UserProvider>();
     userProvider.removeListener(_onUserChanged);
@@ -97,9 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final user = context.watch<UserProvider>().user;
     final friends = context.watch<FriendsProvider>().friends;
-    debugPrint('[ProfileScreen] build: user id: \'${user?.id}\', _streamUid: $_streamUid');
     if (user == null) {
-      debugPrint('[ProfileScreen] build: user is null');
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -108,20 +88,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, photosSnap) {
         final photoDocs = photosSnap.data?.docs ?? [];
         final photosCount = photoDocs.length;
-=======
-  Widget build(BuildContext context) {
-    return Consumer3<UserProvider, FriendsProvider, PhotosProvider>(
-      builder: (context, userProvider, friendsProvider, photosProvider, _) {
-        final user = userProvider.user;
-        final friends = friendsProvider.friends;
-        final photoDocs = photosProvider.photoDocs;
-        final photosCount = photosProvider.photosCount;
-        final totalLikes = photosProvider.totalLikes; // Această valoare se va updata automat
-
-        if (user == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
->>>>>>> origin/tinder
 
         return ScrollConfiguration(
           behavior: const NoGlowScrollBehavior(),
@@ -137,13 +103,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 builder: buildPullRefreshIndicator,
               ),
 
-<<<<<<< HEAD
               // ── Header gradient ───────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _ProfileHeader(user: user),
               ),
 
-              // ── Stats cards 2×2 ──────────────────────────────────────────
+              // ── Stats cards 2x2 ──────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _StatsGrid(
                   countries: user.sharedCountriesCount,
@@ -159,73 +124,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Buton editare ─────────────────────────────────────────────
+              // ── Butoane editare ──────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const EditProfileScreen()),
-                    ),
-                    icon: const Icon(Icons.edit_rounded, size: 16),
-                    label: const Text('Editează profilul'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF374151),
-                      side: const BorderSide(
-                          color: Color(0xFFE5E7EB), width: 1.5),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const EditProfileScreen()),
+                          ),
+                          icon: const Icon(Icons.edit_rounded, size: 16),
+                          label: const Text('Editează profilul'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF374151),
+                            side: const BorderSide(
+                                color: Color(0xFFE5E7EB), width: 1.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const DatingPreferencesScreen()),
+                          ),
+                          icon: const Icon(Icons.search, size: 16),
+                          label: const Text('Întâlnește persoane noi'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFE11D48),
+                            side: const BorderSide(color: Color(0xFFFDA4AF), width: 1.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-=======
-            // ── Butoane editare ──────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const EditProfileScreen()),
-                        ),
-                        icon: const Icon(Icons.edit_rounded, size: 16),
-                        label: const Text('Editează profilul'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF374151),
-                          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const DatingPreferencesScreen()),
-                        ),
-                        icon: const Icon(Icons.search, size: 16),
-                        label: const Text('Intalneste persoane noi '),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFE11D48),
-                          side: const BorderSide(color: Color(0xFFFDA4AF), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
->>>>>>> origin/tinder
                 ),
               ),
 

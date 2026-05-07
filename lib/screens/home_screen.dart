@@ -23,12 +23,8 @@ import 'package:vasco/services/geocoding_service.dart';
 import 'package:vasco/widgets/comments_sheet.dart';
 import '../widget/custom_bottom_nav_bar.dart';
 import 'package:vasco/screens/map_page.dart';
-<<<<<<< HEAD
 import 'package:vasco/services/spotify_service.dart';
 import 'package:vasco/screens/swipe_screen.dart';
-=======
-import 'package:vasco/screens/swipe_screen.dart';
->>>>>>> origin/tinder
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -311,40 +307,51 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // 5. Upload foto cu locația completă
-    await MyPhotoService.uploadPhoto(
-      userId: userModel.id,
-      displayName: userModel.displayName ?? 'Unknown',
-      userPhotoUrl: userModel.photoUrl,
-      latitude: pos.latitude,
-      longitude: pos.longitude,
-      imageFile: File(pickedFile.path),
-      countryName: countryName,
-      locationName: locationName,
-      spotifySong: spotifyTrack?.songName,
-      spotifyArtist: spotifyTrack?.artistName,
-      spotifyAlbumArt: spotifyTrack?.albumArtUrl,
-    );
-
-    // 5. Actualizează lista de țări vizitate
-    if (detected != null) {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userModel.id)
-          .set(
-            {'shared_countries': FieldValue.arrayUnion([detected])},
-            SetOptions(merge: true),
-          );
-    }
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(detected != null
-              ? 'Locație înregistrată în ${detected['value']}!'
-              : 'Locație înregistrată!'),
-        ),
+    try {
+      // 5. Upload foto cu locația completă
+      await MyPhotoService.uploadPhoto(
+        userId: userModel.id,
+        displayName: userModel.displayName ?? 'Unknown',
+        userPhotoUrl: userModel.photoUrl,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        imageFile: File(pickedFile.path),
+        countryName: countryName,
+        locationName: locationName,
+        spotifySong: spotifyTrack?.songName,
+        spotifyArtist: spotifyTrack?.artistName,
+        spotifyAlbumArt: spotifyTrack?.albumArtUrl,
       );
+
+      // 6. Actualizează lista de țări vizitate
+      if (detected != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userModel.id)
+            .set(
+              {'shared_countries': FieldValue.arrayUnion([detected])},
+              SetOptions(merge: true),
+            );
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(detected != null
+                ? 'Locație înregistrată în ${detected['value']}!'
+                : 'Locație înregistrată!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Eroare la postare: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
