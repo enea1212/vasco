@@ -1,0 +1,41 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vascoapp-9adec",
+          "appId": "1:839868664740:android:3b5b4f6c6ab405f166cf31",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vascoapp-9adec",
+          "configurations": {
+            "android": "1:839868664740:android:3b5b4f6c6ab405f166cf31",
+            "ios": "1:839868664740:ios:668a40f98e29da8966cf31",
+            "macos": "1:839868664740:ios:668a40f98e29da8966cf31",
+            "web": "1:839868664740:web:1988fffc571fd5b066cf31",
+            "windows": "1:839868664740:web:d9cb3a764f6d089566cf31"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ]
+}
