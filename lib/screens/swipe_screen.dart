@@ -47,9 +47,14 @@ class _SwipeScreenState extends State<SwipeScreen> {
         .collection('matches')
         .where('users', arrayContains: uid)
         .snapshots()
-        .listen((snap) {
-          if (mounted) setState(() => _matchCount = snap.docs.length);
-        });
+        .listen(
+          (snap) {
+            if (mounted) setState(() => _matchCount = snap.docs.length);
+          },
+          onError: (error, stackTrace) {
+            debugPrint('[SwipeScreen] matches stream error: $error');
+          },
+        );
   }
 
   Future<void> _updateLocationThenLoad() async {

@@ -11,14 +11,18 @@ service firebase.storage {
         && request.resource.size < 10 * 1024 * 1024;
     }
 
-    match /avatars/{userId}.jpg {
+    match /avatars/{fileName} {
       allow read: if signedIn();
-      allow write: if signedIn() && request.auth.uid == userId && isImage();
+      allow write: if signedIn()
+        && fileName == request.auth.uid + '.jpg'
+        && isImage();
     }
 
-    match /location_photos/{photoId}.jpg {
+    match /location_photos/{fileName} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && isImage();
+      allow create, update: if signedIn()
+        && fileName.matches('.*\\.jpg')
+        && isImage();
       allow delete: if false;
     }
 

@@ -36,10 +36,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void initState() {
     super.initState();
     _loadUserData();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPendingRequest());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _checkPendingRequest();
+    });
   }
 
   Future<void> _checkPendingRequest() async {
+    if (!mounted) return;
     final currentUserId = context.read<UserProvider>().user?.id ?? '';
     if (currentUserId.isEmpty) return;
     final snap = await FirebaseFirestore.instance
@@ -85,9 +89,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _sendFriendRequest() async {
     setState(() => _friendActionLoading = true);
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('sendFriendRequest')
-          .call({'toUserId': widget.userId});
+      await FirebaseFunctions.instance.httpsCallable('sendFriendRequest').call({
+        'toUserId': widget.userId,
+      });
       if (mounted) {
         setState(() => _hasPendingRequest = true);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,8 +130,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _goToChat(String currentUserId) async {
     setState(() => _friendActionLoading = true);
     try {
-      final convId = await MessagingRepository()
-          .getOrCreateConversation(currentUserId, widget.userId);
+      final convId = await MessagingRepository().getOrCreateConversation(
+        currentUserId,
+        widget.userId,
+      );
       if (mounted) {
         Navigator.push(
           context,
@@ -179,19 +185,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     setState(() => _friendActionLoading = true);
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('removeFriend')
-          .call({'friendId': widget.userId});
+      await FirebaseFunctions.instance.httpsCallable('removeFriend').call({
+        'friendId': widget.userId,
+      });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Prieten eliminat.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Prieten eliminat.')));
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Eroare.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Eroare.')));
       }
     } finally {
       if (mounted) setState(() => _friendActionLoading = false);
@@ -231,12 +237,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     SliverToBoxAdapter(
                       child: _buildHeader(isFriend, isOwnProfile),
                     ),
-                    SliverToBoxAdapter(
-                      child: _buildStats(photoDocs.length),
-                    ),
-                    SliverToBoxAdapter(
-                      child: _buildPhotosSection(photoDocs),
-                    ),
+                    SliverToBoxAdapter(child: _buildStats(photoDocs.length)),
+                    SliverToBoxAdapter(child: _buildPhotosSection(photoDocs)),
                     const SliverToBoxAdapter(child: SizedBox(height: 60)),
                   ],
                 );
@@ -257,8 +259,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Icons.lock_rounded,
-                color: Color(0xFF9CA3AF), size: 34),
+            child: const Icon(
+              Icons.lock_rounded,
+              color: Color(0xFF9CA3AF),
+              size: 34,
+            ),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -292,8 +297,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         .map((w) => w[0].toUpperCase())
         .take(2)
         .join();
-    final username =
-        '@${_displayName.toLowerCase().replaceAll(' ', '_')}';
+    final username = '@${_displayName.toLowerCase().replaceAll(' ', '_')}';
 
     return Container(
       width: double.infinity,
@@ -313,8 +317,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_rounded,
-                        color: Colors.white, size: 20),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -383,98 +390,122 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const EditProfileScreen()),
+                          builder: (_) => const EditProfileScreen(),
+                        ),
                       ),
-                      icon: const Icon(Icons.edit_rounded,
-                          size: 16, color: Colors.white),
-                      label: const Text('Editează profilul',
-                          style: TextStyle(color: Colors.white)),
+                      icon: const Icon(
+                        Icons.edit_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Editează profilul',
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: Colors.white, width: 1.5),
+                        side: const BorderSide(color: Colors.white, width: 1.5),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         minimumSize: const Size(double.infinity, 0),
                       ),
                     )
                   : _friendActionLoading
-                      ? const SizedBox(
-                          height: 44,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
+                  ? const SizedBox(
+                      height: 44,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    )
+                  : isFriend
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _removeFriend,
+                            icon: const Icon(
+                              Icons.person_remove_rounded,
+                              size: 15,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Unfriend',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
                           ),
-                        )
-                      : isFriend
-                          ? Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: _removeFriend,
-                                    icon: const Icon(Icons.person_remove_rounded,
-                                        size: 15, color: Colors.white),
-                                    label: const Text('Unfriend',
-                                        style: TextStyle(color: Colors.white)),
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
-                                          color: Colors.white, width: 1.5),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => _goToChat(
-                                        context.read<UserProvider>().user?.id ?? ''),
-                                    icon: const Icon(Icons.chat_rounded, size: 15),
-                                    label: const Text('Mesaj'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: const Color(0xFF4F46E5),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : _hasPendingRequest
-                              ? OutlinedButton.icon(
-                                  onPressed: _cancelFriendRequest,
-                                  icon: const Icon(Icons.hourglass_top_rounded,
-                                      size: 15, color: Colors.white),
-                                  label: const Text('Cerere trimisă',
-                                      style: TextStyle(color: Colors.white)),
-                                  style: OutlinedButton.styleFrom(
-                                    side: BorderSide(
-                                        color: Colors.white.withValues(alpha: 0.6),
-                                        width: 1.5),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                    minimumSize: const Size(double.infinity, 0),
-                                  ),
-                                )
-                              : ElevatedButton.icon(
-                                  onPressed: _sendFriendRequest,
-                                  icon: const Icon(Icons.person_add_rounded,
-                                      size: 16),
-                                  label: const Text('Adaugă prieten'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: const Color(0xFF4F46E5),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 10),
-                                    minimumSize: const Size(double.infinity, 0),
-                                  ),
-                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _goToChat(
+                              context.read<UserProvider>().user?.id ?? '',
+                            ),
+                            icon: const Icon(Icons.chat_rounded, size: 15),
+                            label: const Text('Mesaj'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF4F46E5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _hasPendingRequest
+                  ? OutlinedButton.icon(
+                      onPressed: _cancelFriendRequest,
+                      icon: const Icon(
+                        Icons.hourglass_top_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Cerere trimisă',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        minimumSize: const Size(double.infinity, 0),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: _sendFriendRequest,
+                      icon: const Icon(Icons.person_add_rounded, size: 16),
+                      label: const Text('Adaugă prieten'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF4F46E5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        minimumSize: const Size(double.infinity, 0),
+                      ),
+                    ),
             ),
 
             const SizedBox(height: 28),
@@ -546,11 +577,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
               child: const Column(
                 children: [
-                  Icon(Icons.photo_camera_outlined,
-                      size: 40, color: Color(0xFFD1D5DB)),
+                  Icon(
+                    Icons.photo_camera_outlined,
+                    size: 40,
+                    color: Color(0xFFD1D5DB),
+                  ),
                   SizedBox(height: 8),
-                  Text('Nicio fotografie',
-                      style: TextStyle(color: Color(0xFF9CA3AF))),
+                  Text(
+                    'Nicio fotografie',
+                    style: TextStyle(color: Color(0xFF9CA3AF)),
+                  ),
                 ],
               ),
             )
@@ -567,7 +603,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               itemBuilder: (context, index) {
                 final data = photoDocs[index].data() as Map<String, dynamic>;
                 final imageUrl = data['imageUrl'] as String? ?? '';
-                final location = data['locationName'] as String? ??
+                final location =
+                    data['locationName'] as String? ??
                     data['countryName'] as String? ??
                     '';
 
@@ -597,7 +634,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             right: 0,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 4),
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.bottomCenter,
@@ -611,8 +650,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.location_on_rounded,
-                                      size: 9, color: Colors.white),
+                                  const Icon(
+                                    Icons.location_on_rounded,
+                                    size: 9,
+                                    color: Colors.white,
+                                  ),
                                   const SizedBox(width: 2),
                                   Flexible(
                                     child: Text(
@@ -696,10 +738,7 @@ class _StatCard extends StatelessWidget {
           ),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFF6B7280),
-            ),
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
             textAlign: TextAlign.center,
           ),
         ],

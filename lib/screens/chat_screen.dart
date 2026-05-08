@@ -42,12 +42,24 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _msgSub = _repo.getMessages(widget.conversationId).listen((msgs) {
-      if (mounted) {
-        setState(() => _messages = msgs);
-        _scrollToBottom();
-      }
-    });
+    _msgSub = _repo
+        .getMessages(widget.conversationId)
+        .listen(
+          (msgs) {
+            if (mounted) {
+              setState(() => _messages = msgs);
+              _scrollToBottom();
+            }
+          },
+          onError: (error, stackTrace) {
+            debugPrint('[ChatScreen] messages stream error: $error');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Nu pot încărca mesajele: $error')),
+              );
+            }
+          },
+        );
     unawaited(
       context
           .read<MessagingProvider>()

@@ -169,6 +169,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData && snapshot.data != null) {
             final String uid = snapshot.data!.id;
             WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) return;
               context.read<UserProvider>().listenToUser(uid);
               context.read<PhotosProvider>().listenToUserPhotos(uid);
               context.read<FriendsProvider>().init(uid);

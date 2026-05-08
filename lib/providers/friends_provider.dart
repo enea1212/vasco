@@ -34,15 +34,35 @@ class FriendsProvider with ChangeNotifier {
     _searchQuery = '';
     _statusCache.clear();
 
-    _requestsSub = _repo.getIncomingRequests(userId).listen((requests) {
-      _incomingRequests = requests;
-      notifyListeners();
-    });
+    _requestsSub = _repo
+        .getIncomingRequests(userId)
+        .listen(
+          (requests) {
+            _incomingRequests = requests;
+            notifyListeners();
+          },
+          onError: (error, stackTrace) {
+            debugPrint(
+              '[FriendsProvider] incoming requests stream error: $error',
+            );
+            _incomingRequests = [];
+            notifyListeners();
+          },
+        );
 
-    _friendsSub = _repo.getFriends(userId).listen((friends) {
-      _friends = friends;
-      notifyListeners();
-    });
+    _friendsSub = _repo
+        .getFriends(userId)
+        .listen(
+          (friends) {
+            _friends = friends;
+            notifyListeners();
+          },
+          onError: (error, stackTrace) {
+            debugPrint('[FriendsProvider] friends stream error: $error');
+            _friends = [];
+            notifyListeners();
+          },
+        );
   }
 
   Future<void> search(String query, String currentUserId) async {
@@ -58,7 +78,9 @@ class FriendsProvider with ChangeNotifier {
 
     try {
       _searchResults = await _repo.searchUsers(query, currentUserId);
-      await Future.wait(_searchResults.map((u) => _loadStatus(currentUserId, u.id)));
+      await Future.wait(
+        _searchResults.map((u) => _loadStatus(currentUserId, u.id)),
+      );
     } catch (e, st) {
       debugPrint('[FriendsProvider] search error: $e\n$st');
       _searchResults = [];
@@ -76,7 +98,10 @@ class FriendsProvider with ChangeNotifier {
   }
 
   Future<void> _loadStatus(String currentUserId, String otherUserId) async {
-    final status = await _repo.getRelationshipStatus(currentUserId, otherUserId);
+    final status = await _repo.getRelationshipStatus(
+      currentUserId,
+      otherUserId,
+    );
     _statusCache[otherUserId] = status;
   }
 
@@ -92,17 +117,25 @@ class FriendsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> acceptRequest(String requestId, String fromId, String toId) async {
+  Future<void> acceptRequest(
+    String requestId,
+    String fromId,
+    String toId,
+  ) async {
     await _repo.acceptFriendRequest(requestId, fromId, toId);
     _statusCache[fromId] = 'friends';
-    _incomingRequests = _incomingRequests.where((r) => r.id != requestId).toList();
+    _incomingRequests = _incomingRequests
+        .where((r) => r.id != requestId)
+        .toList();
     notifyListeners();
   }
 
   Future<void> declineRequest(String requestId, String fromId) async {
     await _repo.declineFriendRequest(requestId);
     _statusCache[fromId] = 'none';
-    _incomingRequests = _incomingRequests.where((r) => r.id != requestId).toList();
+    _incomingRequests = _incomingRequests
+        .where((r) => r.id != requestId)
+        .toList();
     notifyListeners();
   }
 

@@ -18,10 +18,21 @@ class MessagingProvider extends ChangeNotifier {
 
   void init(String userId) {
     _convSub?.cancel();
-    _convSub = _repo.getConversations(userId).listen((convs) {
-      _conversations = convs;
-      notifyListeners();
-    });
+    _convSub = _repo
+        .getConversations(userId)
+        .listen(
+          (convs) {
+            _conversations = convs;
+            notifyListeners();
+          },
+          onError: (error, stackTrace) {
+            debugPrint(
+              '[MessagingProvider] conversations stream error: $error',
+            );
+            _conversations = [];
+            notifyListeners();
+          },
+        );
   }
 
   Future<String> openChat(String currentUserId, String otherUserId) {

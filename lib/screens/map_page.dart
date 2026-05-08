@@ -140,12 +140,17 @@ class _MapPageState extends State<MapPage> {
             accuracy: geo.LocationAccuracy.high,
             distanceFilter: 10,
           ),
-        ).listen((geo.Position position) async {
-          if (!mounted) return;
-          setState(() => _currentPosition = position);
-          await _refreshUserAnnotation(position);
-          _publishMyLocation(position);
-        });
+        ).listen(
+          (geo.Position position) async {
+            if (!mounted) return;
+            setState(() => _currentPosition = position);
+            await _refreshUserAnnotation(position);
+            _publishMyLocation(position);
+          },
+          onError: (error, stackTrace) {
+            debugPrint('[MapPage] position stream error: $error');
+          },
+        );
   }
 
   void _publishMyLocation(geo.Position pos) {
@@ -213,66 +218,80 @@ class _MapPageState extends State<MapPage> {
         .doc(user.id)
         .collection('friends')
         .snapshots()
-        .listen((snap) async {
-          if (!mounted) return;
-          final currentIds = snap.docs
-              .map((d) => d['userId'] as String)
-              .toSet();
+        .listen(
+          (snap) async {
+            if (!mounted) return;
+            final currentIds = snap.docs
+                .map((d) => d['userId'] as String)
+                .toSet();
 
-          // Cancel subs for removed friends and delete their annotations
-          for (final id in _friendLocationSubs.keys.toList()) {
-            if (!currentIds.contains(id)) {
-              await _friendLocationSubs[id]?.cancel();
-              _friendLocationSubs.remove(id);
-              _friendAvatarCache.remove(id);
-              _friendData.remove(id);
-              _friendMapPoints.remove(id);
-              final ann = _friendAnnotations.remove(id);
-              if (ann != null) await _pointAnnotationManager?.delete(ann);
+            // Cancel subs for removed friends and delete their annotations
+            for (final id in _friendLocationSubs.keys.toList()) {
+              if (!currentIds.contains(id)) {
+                await _friendLocationSubs[id]?.cancel();
+                _friendLocationSubs.remove(id);
+                _friendAvatarCache.remove(id);
+                _friendData.remove(id);
+                _friendMapPoints.remove(id);
+                final ann = _friendAnnotations.remove(id);
+                if (ann != null) await _pointAnnotationManager?.delete(ann);
+              }
             }
-          }
 
-          // Subscribe to new friends
-          for (final doc in snap.docs) {
-            final friendId = doc['userId'] as String;
-            if (_friendLocationSubs.containsKey(friendId)) continue;
+            // Subscribe to new friends
+            for (final doc in snap.docs) {
+              final friendId = doc['userId'] as String;
+              if (_friendLocationSubs.containsKey(friendId)) continue;
 
-            // Fetch profile
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(friendId)
-                .get();
-            if (!userDoc.exists || !mounted) continue;
-            final data = userDoc.data()!;
-            final photoUrl = data['photoUrl'] as String?;
-            final displayName = data['displayName'] as String?;
+              // Fetch profile
+              final userDoc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(friendId)
+                  .get();
+              if (!userDoc.exists || !mounted) continue;
+              final data = userDoc.data()!;
+              final photoUrl = data['photoUrl'] as String?;
+              final displayName = data['displayName'] as String?;
 
-            _friendData[friendId] = {
-              'displayName': displayName,
-              'photoUrl': photoUrl,
-            };
-            _friendAvatarCache[friendId] = await _buildFriendAvatar(
-              photoUrl,
-              displayName,
-            );
+              _friendData[friendId] = {
+                'displayName': displayName,
+                'photoUrl': photoUrl,
+              };
+              _friendAvatarCache[friendId] = await _buildFriendAvatar(
+                photoUrl,
+                displayName,
+              );
 
-            _friendLocationSubs[friendId] = FirebaseFirestore.instance
-                .collection('user_locations')
-                .doc(friendId)
-                .snapshots()
-                .listen((locDoc) async {
-                  if (!mounted) return;
-                  if (!locDoc.exists) {
-                    final ann = _friendAnnotations.remove(friendId);
-                    if (ann != null) await _pointAnnotationManager?.delete(ann);
-                    return;
-                  }
-                  final lat = (locDoc['latitude'] as num).toDouble();
-                  final lng = (locDoc['longitude'] as num).toDouble();
-                  await _updateFriendAnnotation(friendId, lat, lng);
-                });
-          }
-        });
+              _friendLocationSubs[friendId] = FirebaseFirestore.instance
+                  .collection('user_locations')
+                  .doc(friendId)
+                  .snapshots()
+                  .listen(
+                    (locDoc) async {
+                      if (!mounted) return;
+                      if (!locDoc.exists) {
+                        final ann = _friendAnnotations.remove(friendId);
+                        if (ann != null) {
+                          await _pointAnnotationManager?.delete(ann);
+                        }
+                        return;
+                      }
+                      final lat = (locDoc['latitude'] as num).toDouble();
+                      final lng = (locDoc['longitude'] as num).toDouble();
+                      await _updateFriendAnnotation(friendId, lat, lng);
+                    },
+                    onError: (error, stackTrace) {
+                      debugPrint(
+                        '[MapPage] friend location stream error for $friendId: $error',
+                      );
+                    },
+                  );
+            }
+          },
+          onError: (error, stackTrace) {
+            debugPrint('[MapPage] friends list stream error: $error');
+          },
+        );
   }
 
   Future<Uint8List> _buildFriendAvatar(
@@ -596,23 +615,28 @@ class _MapPageState extends State<MapPage> {
           .collection('users')
           .doc(targetId)
           .snapshots()
-          .listen((doc) async {
-            if (!doc.exists || !mounted) return;
-            final data = doc.data();
-            if (data == null) return;
-            final raw = data['shared_countries'];
-            final newCountries = raw != null
-                ? (raw as List<dynamic>)
-                      .map((e) => Map<String, String>.from(e))
-                      .toList()
-                : <Map<String, String>>[];
-            if (_mapboxMap == null) return;
-            _sharedCountries = newCountries;
-            await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
-            if (_currentPosition != null) {
-              await _refreshUserAnnotation(_currentPosition!);
-            }
-          });
+          .listen(
+            (doc) async {
+              if (!doc.exists || !mounted) return;
+              final data = doc.data();
+              if (data == null) return;
+              final raw = data['shared_countries'];
+              final newCountries = raw != null
+                  ? (raw as List<dynamic>)
+                        .map((e) => Map<String, String>.from(e))
+                        .toList()
+                  : <Map<String, String>>[];
+              if (_mapboxMap == null) return;
+              _sharedCountries = newCountries;
+              await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
+              if (_currentPosition != null) {
+                await _refreshUserAnnotation(_currentPosition!);
+              }
+            },
+            onError: (error, stackTrace) {
+              debugPrint('[MapPage] user document stream error: $error');
+            },
+          );
     } else {
       // Harta altui utilizator: citire unică
       final doc = await FirebaseFirestore.instance
