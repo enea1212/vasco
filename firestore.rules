@@ -46,7 +46,8 @@ service cloud.firestore {
       allow create: if request.auth != null &&
                     request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null &&
-                    resource.data.userId == request.auth.uid;
+                    resource.data.userId == request.auth.uid &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description']);
       allow delete: if false;
 
       match /likes/{userId} {

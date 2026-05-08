@@ -8,7 +8,8 @@ class DatingPreferencesScreen extends StatefulWidget {
   const DatingPreferencesScreen({super.key});
 
   @override
-  State<DatingPreferencesScreen> createState() => _DatingPreferencesScreenState();
+  State<DatingPreferencesScreen> createState() =>
+      _DatingPreferencesScreenState();
 }
 
 class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
@@ -47,7 +48,8 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
       _interestedIn = user.preferences?['interestedIn'];
       _minAge = (user.preferences?['minAge'] as num?)?.toDouble() ?? 18;
       _maxAge = (user.preferences?['maxAge'] as num?)?.toDouble() ?? 35;
-      _maxDistance = (user.preferences?['maxDistance'] as num?)?.toDouble() ?? 50;
+      _maxDistance =
+          (user.preferences?['maxDistance'] as num?)?.toDouble() ?? 50;
       final saved = user.interests ?? [];
       _selectedGoals
         ..clear()
@@ -58,13 +60,20 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   Future<void> _save() async {
     if (_myGender == null || _interestedIn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selectează genul tău și pe cine vrei să întâlnești.')),
+        const SnackBar(
+          content: Text('Selectează genul tău și pe cine vrei să întâlnești.'),
+        ),
       );
       return;
     }
     setState(() => _isSaving = true);
     try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        throw Exception(
+          'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
+        );
+      }
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'gender': _myGender,
         'interests': _selectedGoals.toList(),
@@ -74,16 +83,16 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         'preferences.maxDistance': _maxDistance.round(),
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Preferințe salvate!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Preferințe salvate!')));
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Eroare: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -141,7 +150,10 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
                       ),
                       child: const Text(
                         'Salvează preferințele',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -184,7 +196,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
             color: selected ? const Color(0xFF4F46E5) : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
+              color: selected
+                  ? const Color(0xFF4F46E5)
+                  : const Color(0xFFE5E7EB),
               width: 2,
             ),
             boxShadow: [
@@ -197,7 +211,11 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
           ),
           child: Column(
             children: [
-              Icon(icon, size: 32, color: selected ? Colors.white : const Color(0xFF6B7280)),
+              Icon(
+                icon,
+                size: 32,
+                color: selected ? Colors.white : const Color(0xFF6B7280),
+              ),
               const SizedBox(height: 6),
               Text(
                 label,
@@ -237,7 +255,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
             color: selected ? const Color(0xFFEEF2FF) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
+              color: selected
+                  ? const Color(0xFF4F46E5)
+                  : const Color(0xFFE5E7EB),
               width: 2,
             ),
           ),
@@ -247,7 +267,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 13,
-              color: selected ? const Color(0xFF4F46E5) : const Color(0xFF374151),
+              color: selected
+                  ? const Color(0xFF4F46E5)
+                  : const Color(0xFF374151),
             ),
           ),
         ),
@@ -280,7 +302,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
             inactiveTrackColor: const Color(0xFFE5E7EB),
             thumbColor: const Color(0xFF4F46E5),
             overlayColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
-            rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 10),
+            rangeThumbShape: const RoundRangeSliderThumbShape(
+              enabledThumbRadius: 10,
+            ),
             trackHeight: 4,
           ),
           child: RangeSlider(
@@ -297,8 +321,14 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text('18', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
-            Text('60', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+            Text(
+              '18',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
+            Text(
+              '60',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
           ],
         ),
       ],
@@ -345,8 +375,14 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text('5 km', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
-            Text('150 km', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+            Text(
+              '5 km',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
+            Text(
+              '150 km',
+              style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+            ),
           ],
         ),
       ],
@@ -377,7 +413,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
               color: selected ? const Color(0xFF4F46E5) : Colors.white,
               borderRadius: BorderRadius.circular(50),
               border: Border.all(
-                color: selected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
+                color: selected
+                    ? const Color(0xFF4F46E5)
+                    : const Color(0xFFE5E7EB),
                 width: 1.5,
               ),
               boxShadow: [

@@ -70,12 +70,12 @@ class MessagingRepository {
       'text': text,
       'createdAt': FieldValue.serverTimestamp(),
     });
-    batch.update(convRef, {
+    batch.set(convRef, {
       'lastMessage': text,
       'lastMessageTime': FieldValue.serverTimestamp(),
       'lastMessageSenderId': senderId,
       for (final id in recipients) 'unreadCount.$id': FieldValue.increment(1),
-    });
+    }, SetOptions(merge: true));
     await batch.commit();
   }
 
@@ -85,16 +85,16 @@ class MessagingRepository {
         .where('participantIds', arrayContains: userId)
         .snapshots()
         .map((snap) {
-      final convs = snap.docs
-          .map((doc) => ConversationModel.fromDoc(doc))
-          .toList();
-      convs.sort((a, b) {
-        if (a.lastMessageTime == null) return 1;
-        if (b.lastMessageTime == null) return -1;
-        return b.lastMessageTime!.compareTo(a.lastMessageTime!);
-      });
-      return convs;
-    });
+          final convs = snap.docs
+              .map((doc) => ConversationModel.fromDoc(doc))
+              .toList();
+          convs.sort((a, b) {
+            if (a.lastMessageTime == null) return 1;
+            if (b.lastMessageTime == null) return -1;
+            return b.lastMessageTime!.compareTo(a.lastMessageTime!);
+          });
+          return convs;
+        });
   }
 
   Stream<List<MessageModel>> getMessages(String convId) {
@@ -104,9 +104,9 @@ class MessagingRepository {
         .collection('messages')
         .orderBy('createdAt')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => MessageModel.fromDoc(doc))
-            .toList());
+        .map(
+          (snap) => snap.docs.map((doc) => MessageModel.fromDoc(doc)).toList(),
+        );
   }
 
   Future<void> markAsRead(String convId, String userId) async {

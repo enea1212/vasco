@@ -21,13 +21,25 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
   }
 
   Future<void> _loadMatches() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final callable = FirebaseFunctions.instance.httpsCallable('getMyMatches');
       final result = await callable.call();
-      final data = Map<String, dynamic>.from(result.data);
-      final list = (data['matches'] as List)
+      final data = result.data is Map
+          ? Map<String, dynamic>.from(result.data as Map)
+          : <String, dynamic>{};
+      final matches = data['matches'] is List
+          ? data['matches'] as List
+          : const [];
+      final list = matches
+          .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
+          .where(
+            (match) =>
+                (match['conversationId'] as String?)?.isNotEmpty == true &&
+                (match['userId'] as String?)?.isNotEmpty == true,
+          )
           .toList();
       if (!mounted) return;
       setState(() {
@@ -68,21 +80,19 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _matches.isEmpty
-              ? _emptyState()
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemCount: _matches.length,
-                  itemBuilder: (context, index) => _MatchCard(
-                    match: _matches[index],
-                    currentUserId: uid,
-                  ),
-                ),
+          ? _emptyState()
+          : GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.75,
+              ),
+              itemCount: _matches.length,
+              itemBuilder: (context, index) =>
+                  _MatchCard(match: _matches[index], currentUserId: uid),
+            ),
     );
   }
 
@@ -138,22 +148,30 @@ class _MatchCard extends StatelessWidget {
     final name = match['displayName'] as String? ?? 'Utilizator';
     final photo = match['photoUrl'] as String?;
     final age = match['age'] as int?;
-    final conversationId = match['conversationId'] as String;
-    final userId = match['userId'] as String;
+    final conversationId = match['conversationId'] as String?;
+    final userId = match['userId'] as String?;
+    final canOpenChat =
+        conversationId != null &&
+        conversationId.isNotEmpty &&
+        userId != null &&
+        userId.isNotEmpty &&
+        currentUserId.isNotEmpty;
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChatScreen(
-            conversationId: conversationId,
-            currentUserId: currentUserId,
-            otherUserId: userId,
-            otherUserName: name,
-            otherUserPhoto: photo,
-          ),
-        ),
-      ),
+      onTap: canOpenChat
+          ? () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatScreen(
+                  conversationId: conversationId,
+                  currentUserId: currentUserId,
+                  otherUserId: userId,
+                  otherUserName: name,
+                  otherUserPhoto: photo,
+                ),
+              ),
+            )
+          : null,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,

@@ -32,12 +32,18 @@ class LocationService {
 
       // 2. Obținem coordonatele actuale
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium, // Poți folosi 'medium' pentru a salva baterie
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
       );
 
       // 3. Generăm GeoHash-ul
       // Precizia 9 înseamnă aproximativ o suprafață de 4.7m x 4.7m.
-      String geoHash = GeoHash.encode(position.latitude, position.longitude, precision: 9).hash;
+      String geoHash = GeoHash.encode(
+        position.latitude,
+        position.longitude,
+        precision: 9,
+      ).hash;
 
       // 4. Actualizăm documentul utilizatorului în Firestore
       await _firestore.collection('users').doc(userId).update({
@@ -46,11 +52,11 @@ class LocationService {
           'lat': position.latitude,
           'lng': position.longitude,
         },
-        'lastActive': FieldValue.serverTimestamp(), // Actualizăm și activitatea!
+        'lastActive':
+            FieldValue.serverTimestamp(), // Actualizăm și activitatea!
       });
 
       debugPrint('Locație actualizată cu succes: $geoHash');
-
     } catch (e) {
       debugPrint('Eroare la actualizarea locației: $e');
     }

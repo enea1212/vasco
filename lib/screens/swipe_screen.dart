@@ -16,7 +16,7 @@ class SwipeScreen extends StatefulWidget {
   const SwipeScreen({super.key});
 
   @override
-  _SwipeScreenState createState() => _SwipeScreenState();
+  State<SwipeScreen> createState() => _SwipeScreenState();
 }
 
 class _SwipeScreenState extends State<SwipeScreen> {
@@ -57,18 +57,26 @@ class _SwipeScreenState extends State<SwipeScreen> {
     if (uid != null) {
       await LocationService().updateCurrentUserLocation(uid);
     }
+    if (!mounted) return;
     _loadRecommendations();
   }
 
   Future<void> _loadRecommendations() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('getRecommendations');
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'getRecommendations',
+      );
       final results = await callable.call();
-      final List<dynamic> data = results.data;
+      final List<dynamic> data = results.data is List
+          ? results.data as List
+          : [];
       if (!mounted) return;
       setState(() {
-        recommendations = data.map((e) => Map<String, dynamic>.from(e)).toList();
+        recommendations = data
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         isLoading = false;
       });
     } catch (e) {
@@ -78,14 +86,21 @@ class _SwipeScreenState extends State<SwipeScreen> {
     }
   }
 
-  bool _onSwipe(int? previousIndex, int? currentIndex, CardSwiperDirection direction) {
+  bool _onSwipe(
+    int? previousIndex,
+    int? currentIndex,
+    CardSwiperDirection direction,
+  ) {
     if (previousIndex != null) {
       _handleSwipe(previousIndex, direction);
     }
     return true;
   }
 
-  Future<void> _handleSwipe(int previousIndex, CardSwiperDirection direction) async {
+  Future<void> _handleSwipe(
+    int previousIndex,
+    CardSwiperDirection direction,
+  ) async {
     final swipedProfile = recommendations[previousIndex];
     final myUserId = FirebaseAuth.instance.currentUser?.uid;
     if (myUserId == null) return;
@@ -113,9 +128,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
     } catch (e) {
       debugPrint('Eroare la salvarea swipe-ului: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Eroare swipe: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Eroare swipe: $e')));
       }
     }
   }
@@ -170,7 +185,10 @@ class _SwipeScreenState extends State<SwipeScreen> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
                     child: Text(
                       _matchCount > 99 ? '99+' : '$_matchCount',
                       style: const TextStyle(
@@ -189,78 +207,84 @@ class _SwipeScreenState extends State<SwipeScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : recommendations.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.people_outline, size: 64, color: Color(0xFFD1D5DB)),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Nu am găsit persoane noi în zonă.',
-                        style: TextStyle(color: Color(0xFF6B7280), fontSize: 16),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _loadRecommendations,
-                        child: const Text('Caută din nou'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.people_outline,
+                    size: 64,
+                    color: Color(0xFFD1D5DB),
                   ),
-                )
-              : SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: CardSwiper(
-                            controller: controller,
-                            cardsCount: recommendations.length,
-                            numberOfCardsDisplayed: recommendations.length == 1 ? 1 : 2,
-                            isLoop: false,
-                            onSwipe: _onSwipe,
-                            onEnd: () {
-                              if (mounted) {
-                                setState(() => recommendations = []);
-                              }
-                            },
-                            cardBuilder: (context, index) => TinderCard(
-                              profile: recommendations[index],
-                              onTap: () => showProfileDetail(
-                                context,
-                                recommendations[index],
-                              ),
-                            ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Nu am găsit persoane noi în zonă.',
+                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadRecommendations,
+                    child: const Text('Caută din nou'),
+                  ),
+                ],
+              ),
+            )
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: CardSwiper(
+                        controller: controller,
+                        cardsCount: recommendations.length,
+                        numberOfCardsDisplayed: recommendations.length == 1
+                            ? 1
+                            : 2,
+                        isLoop: false,
+                        onSwipe: _onSwipe,
+                        onEnd: () {
+                          if (mounted) {
+                            setState(() => recommendations = []);
+                          }
+                        },
+                        cardBuilder: (context, index) => TinderCard(
+                          profile: recommendations[index],
+                          onTap: () => showProfileDetail(
+                            context,
+                            recommendations[index],
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              FloatingActionButton(
-                                heroTag: 'swipe_left',
-                                onPressed: () => controller.swipeLeft(),
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.red,
-                                elevation: 4,
-                                child: const Icon(Icons.close_rounded, size: 30),
-                              ),
-                              FloatingActionButton(
-                                heroTag: 'swipe_right',
-                                onPressed: () => controller.swipeRight(),
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.green,
-                                elevation: 4,
-                                child: const Icon(Icons.favorite_rounded, size: 30),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          FloatingActionButton(
+                            heroTag: 'swipe_left',
+                            onPressed: () => controller.swipeLeft(),
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.red,
+                            elevation: 4,
+                            child: const Icon(Icons.close_rounded, size: 30),
+                          ),
+                          FloatingActionButton(
+                            heroTag: 'swipe_right',
+                            onPressed: () => controller.swipeRight(),
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.green,
+                            elevation: 4,
+                            child: const Icon(Icons.favorite_rounded, size: 30),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 }

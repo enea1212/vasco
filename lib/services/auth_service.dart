@@ -40,11 +40,11 @@ class AuthService {
         await firebaseUser.updateDisplayName(name);
         await firebaseUser.reload();
 
-        final updatedFirebaseUser = _firebaseAuth.currentUser;
+        final updatedFirebaseUser = _firebaseAuth.currentUser ?? firebaseUser;
 
         // 2. Crearea modelului nostru de date
         UserModel newUser = UserModel(
-          id: updatedFirebaseUser!.uid,
+          id: updatedFirebaseUser.uid,
           email: updatedFirebaseUser.email ?? email,
           displayName: name,
           photoUrl: updatedFirebaseUser.photoURL ?? '',

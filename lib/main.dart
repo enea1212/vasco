@@ -19,10 +19,14 @@ import 'package:vasco/models/user_model.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  await dotenv.load(
+    fileName: '.env',
+    isOptional: true,
+    mergeWith: {
+      'SPOTIFY_CLIENT_ID': const String.fromEnvironment('SPOTIFY_CLIENT_ID'),
+    },
   );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(
     MultiProvider(
@@ -32,16 +36,21 @@ Future<void> main() async {
         Provider<UserRepository>(create: (_) => UserRepository()),
         ChangeNotifierProxyProvider<AuthService, AuthViewModel>(
           create: (context) => AuthViewModel(context.read<AuthService>()),
-          update: (context, authService, previous) => AuthViewModel(authService),
+          update: (context, authService, previous) =>
+              AuthViewModel(authService),
         ),
         ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
         ChangeNotifierProvider<PhotosProvider>(create: (_) => PhotosProvider()),
         Provider<FriendsRepository>(create: (_) => FriendsRepository()),
-        ChangeNotifierProvider<FriendsProvider>(create: (_) => FriendsProvider()),
+        ChangeNotifierProvider<FriendsProvider>(
+          create: (_) => FriendsProvider(),
+        ),
         Provider<MessagingRepository>(create: (_) => MessagingRepository()),
         ChangeNotifierProxyProvider<MessagingRepository, MessagingProvider>(
-          create: (context) => MessagingProvider(context.read<MessagingRepository>()),
-          update: (context, repo, previous) => previous ?? MessagingProvider(repo),
+          create: (context) =>
+              MessagingProvider(context.read<MessagingRepository>()),
+          update: (context, repo, previous) =>
+              previous ?? MessagingProvider(repo),
         ),
       ],
       child: const MyApp(),
@@ -110,8 +119,10 @@ class MyApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFFF3F4F6),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 16,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
@@ -122,8 +133,7 @@ class MyApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide:
-                const BorderSide(color: Color(0xFF4F46E5), width: 2),
+            borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
           ),
           labelStyle: const TextStyle(color: Color(0xFF6B7280)),
           hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
@@ -131,8 +141,9 @@ class MyApp extends StatelessWidget {
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         dividerTheme: const DividerThemeData(
           color: Color(0xFFF3F4F6),

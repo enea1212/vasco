@@ -8,31 +8,27 @@ class PhotosProvider with ChangeNotifier {
   int _photosCount = 0;
   int _totalLikes = 0;
   String? _currentUserId;
-  
+
   List<QueryDocumentSnapshot> get photoDocs => _photoDocs;
   int get photosCount => _photosCount;
   int get totalLikes => _totalLikes;
 
   StreamSubscription<QuerySnapshot>? _photosSubscription;
 
-Future<void> hitLike(String photoId) async {
-  try {
-    // Apelăm funcția toggleLike definită în index.js
-    await FirebaseFunctions.instance
-        .httpsCallable('toggleLike')
-        .call({
-      "postId": photoId,
-      "collection": "location_photos", 
-    });
-    
-    // Nu este nevoie de notifyListeners() aici, deoarece listenToUserPhotos 
-    // va detecta automat schimbarea de pe server și va face update la UI.
-  } catch (e) {
-    print('Eroare la toggleLike: $e');
+  Future<void> hitLike(String photoId) async {
+    try {
+      // Apelăm funcția toggleLike definită în index.js
+      await FirebaseFunctions.instance.httpsCallable('toggleLike').call({
+        "postId": photoId,
+        "collection": "location_photos",
+      });
+
+      // Nu este nevoie de notifyListeners() aici, deoarece listenToUserPhotos
+      // va detecta automat schimbarea de pe server și va face update la UI.
+    } catch (e) {
+      debugPrint('Eroare la toggleLike: $e');
+    }
   }
-}
-
-
 
   void listenToUserPhotos(String userId) {
     // Evită crearea de mai mulți listeners pentru același user
@@ -48,21 +44,21 @@ Future<void> hitLike(String photoId) async {
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .listen((snapshot) {
-      // Actualizează doar dacă avem date noi
-      _photoDocs = snapshot.docs;
-      _photosCount = _photoDocs.length;
-      _totalLikes = _photoDocs.fold<int>(
-        0,
-        (acc, doc) {
-          final d = doc.data() as Map<String, dynamic>;
-          return acc + ((d['likesCount'] as num?)?.toInt() ?? 0);
-        },
-      );
-      notifyListeners();
-    }, onError: (error) {
-      print('Error listening to photos: $error');
-    });
+        .listen(
+          (snapshot) {
+            // Actualizează doar dacă avem date noi
+            _photoDocs = snapshot.docs;
+            _photosCount = _photoDocs.length;
+            _totalLikes = _photoDocs.fold<int>(0, (acc, doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              return acc + ((d['likesCount'] as num?)?.toInt() ?? 0);
+            });
+            notifyListeners();
+          },
+          onError: (error) {
+            debugPrint('Error listening to photos: $error');
+          },
+        );
   }
 
   @override

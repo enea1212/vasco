@@ -51,7 +51,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
     if (pickedFile != null) {
       setState(() => _imageFile = File(pickedFile.path));
     }
@@ -65,7 +67,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       String? imageUrl = user?.photoUrl;
 
       if (_imageFile != null) {
-        final ref = FirebaseStorage.instance.ref().child('avatars/${user!.id}.jpg');
+        final ref = FirebaseStorage.instance.ref().child(
+          'avatars/${user!.id}.jpg',
+        );
         await ref.putFile(_imageFile!);
         imageUrl = await ref.getDownloadURL();
       }
@@ -82,13 +86,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         // Așteaptă puțin pentru ca stream-ul să se actualizeze
         await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Eroare: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Eroare: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -108,58 +113,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Editează Profil")),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
-                    child: _imageFile == null ? const Icon(Icons.camera_alt) : null,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundImage: _imageFile != null
+                          ? FileImage(_imageFile!)
+                          : null,
+                      child: _imageFile == null
+                          ? const Icon(Icons.camera_alt)
+                          : null,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: "Nume",
-                    hintText: "Introdu-ți numele",
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: "Nume",
+                      hintText: "Introdu-ți numele",
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _bioController,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: "Bio",
-                    hintText: "Spune-ne ceva despre tine",
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _bioController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: "Bio",
+                      hintText: "Spune-ne ceva despre tine",
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.cake_outlined),
-                  title: const Text('Data nașterii'),
-                  subtitle: Text(
-                    _selectedBirthDate != null
-                        ? '${_selectedBirthDate!.day}.${_selectedBirthDate!.month}.${_selectedBirthDate!.year}'
-                        : 'Neselectată',
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.cake_outlined),
+                    title: const Text('Data nașterii'),
+                    subtitle: Text(
+                      _selectedBirthDate != null
+                          ? '${_selectedBirthDate!.day}.${_selectedBirthDate!.month}.${_selectedBirthDate!.year}'
+                          : 'Neselectată',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _pickBirthDate,
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _pickBirthDate,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _updateProfile,
-                  child: const Text("Salvează"),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _updateProfile,
+                    child: const Text("Salvează"),
+                  ),
+                ],
+              ),
             ),
-          ),
     );
   }
 }

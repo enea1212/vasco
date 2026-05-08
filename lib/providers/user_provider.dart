@@ -24,29 +24,44 @@ class UserProvider with ChangeNotifier {
         .collection('users')
         .doc(uid)
         .snapshots()
-        .listen((snapshot) {
-      if (snapshot.exists) {
-        final data = snapshot.data()!;
-        // Păstrează valorile existente pentru câmpurile care nu sunt în update
-        _user = UserModel(
-          id: data['id'] ?? _user?.id ?? uid,
-          email: data['email'] ?? _user?.email ?? '',
-          displayName: data['displayName'] ?? _user?.displayName,
-          photoUrl: data['photoUrl'] ?? _user?.photoUrl,
-          biography: data['bio'] ?? _user?.biography ?? "",
-          sharedCountriesCount: (data['shared_countries'] as List?)?.length ?? _user?.sharedCountriesCount ?? 0,
-          isPrivate: data['isPrivate'] as bool? ?? _user?.isPrivate ?? false,
-          birthDate: data['birthDate'] != null ? (data['birthDate'] as Timestamp).toDate() : _user?.birthDate,
-          gender: data['gender'] ?? _user?.gender,
-          interests: data['interests'] != null ? List<String>.from(data['interests']) : _user?.interests,
-          preferences: data['preferences'] != null ? Map<String, dynamic>.from(data['preferences']) : _user?.preferences,
-          lastActive: data['lastActive'] != null ? (data['lastActive'] as Timestamp).toDate() : _user?.lastActive,
+        .listen(
+          (snapshot) {
+            if (snapshot.exists) {
+              final data = snapshot.data()!;
+              // Păstrează valorile existente pentru câmpurile care nu sunt în update
+              _user = UserModel(
+                id: data['id'] ?? _user?.id ?? uid,
+                email: data['email'] ?? _user?.email ?? '',
+                displayName: data['displayName'] ?? _user?.displayName,
+                photoUrl: data['photoUrl'] ?? _user?.photoUrl,
+                biography: data['bio'] ?? _user?.biography ?? "",
+                sharedCountriesCount:
+                    (data['shared_countries'] as List?)?.length ??
+                    _user?.sharedCountriesCount ??
+                    0,
+                isPrivate:
+                    data['isPrivate'] as bool? ?? _user?.isPrivate ?? false,
+                birthDate: data['birthDate'] != null
+                    ? (data['birthDate'] as Timestamp).toDate()
+                    : _user?.birthDate,
+                gender: data['gender'] ?? _user?.gender,
+                interests: data['interests'] != null
+                    ? List<String>.from(data['interests'])
+                    : _user?.interests,
+                preferences: data['preferences'] != null
+                    ? Map<String, dynamic>.from(data['preferences'])
+                    : _user?.preferences,
+                lastActive: data['lastActive'] != null
+                    ? (data['lastActive'] as Timestamp).toDate()
+                    : _user?.lastActive,
+              );
+              notifyListeners();
+            }
+          },
+          onError: (error) {
+            debugPrint('Error listening to user: $error');
+          },
         );
-        notifyListeners();
-      }
-    }, onError: (error) {
-      print('Error listening to user: $error');
-    });
   }
 
   @override

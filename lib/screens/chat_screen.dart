@@ -48,9 +48,14 @@ class _ChatScreenState extends State<ChatScreen> {
         _scrollToBottom();
       }
     });
-    context
-        .read<MessagingProvider>()
-        .markAsRead(widget.conversationId, widget.currentUserId);
+    unawaited(
+      context
+          .read<MessagingProvider>()
+          .markAsRead(widget.conversationId, widget.currentUserId)
+          .catchError((error) {
+            debugPrint('Eroare la marcarea mesajelor ca citite: $error');
+          }),
+    );
   }
 
   @override
@@ -110,8 +115,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: const Color(0xFFEEF2FF),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Icon(Icons.group_rounded,
-                        size: 18, color: Color(0xFF4F46E5)),
+                    child: const Icon(
+                      Icons.group_rounded,
+                      size: 18,
+                      color: Color(0xFF4F46E5),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -145,8 +153,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           : null,
                       backgroundColor: const Color(0xFFF3F4F6),
                       child: widget.otherUserPhoto == null
-                          ? const Icon(Icons.person_rounded,
-                              size: 18, color: Color(0xFF9CA3AF))
+                          ? const Icon(
+                              Icons.person_rounded,
+                              size: 18,
+                              color: Color(0xFF9CA3AF),
+                            )
                           : null,
                     ),
                     const SizedBox(width: 10),
@@ -170,26 +181,23 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     itemCount: _messages.length,
                     itemBuilder: (_, i) => _MessageBubble(
                       msg: _messages[i],
-                      isMe:
-                          _messages[i].senderId == widget.currentUserId,
-                      showTime: i == 0 ||
-                          _messages[i]
-                                  .createdAt
+                      isMe: _messages[i].senderId == widget.currentUserId,
+                      showTime:
+                          i == 0 ||
+                          _messages[i].createdAt
                                   .difference(_messages[i - 1].createdAt)
                                   .inMinutes >
                               10,
                     ),
                   ),
           ),
-          _InputBar(
-            controller: _controller,
-            sending: _sending,
-            onSend: _send,
-          ),
+          _InputBar(controller: _controller, sending: _sending, onSend: _send),
         ],
       ),
     );
@@ -207,8 +215,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 : null,
             backgroundColor: const Color(0xFFF3F4F6),
             child: widget.otherUserPhoto == null
-                ? const Icon(Icons.person_rounded,
-                    size: 40, color: Color(0xFF9CA3AF))
+                ? const Icon(
+                    Icons.person_rounded,
+                    size: 40,
+                    color: Color(0xFF9CA3AF),
+                  )
                 : null,
           ),
           const SizedBox(height: 14),
@@ -259,18 +270,14 @@ class _MessageBubble extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8, top: 4),
             child: Text(
               _formatTime(msg.createdAt),
-              style: const TextStyle(
-                color: Color(0xFF9CA3AF),
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
             ),
           ),
         Align(
           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
             margin: const EdgeInsets.only(bottom: 4),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.72,
             ),
@@ -354,7 +361,9 @@ class _InputBar extends StatelessWidget {
                   hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                 ),
                 onSubmitted: (_) => onSend(),
               ),
@@ -378,10 +387,15 @@ class _InputBar extends StatelessWidget {
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     )
-                  : const Icon(Icons.send_rounded,
-                      color: Colors.white, size: 20),
+                  : const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
             ),
           ),
         ],

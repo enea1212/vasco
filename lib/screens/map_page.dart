@@ -19,10 +19,9 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/user_provider.dart';
 
-
 class MapPage extends StatefulWidget {
   final String? userId;
-  const MapPage({Key? key, this.userId}) : super(key: key);
+  const MapPage({super.key, this.userId});
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -53,6 +52,7 @@ class _MapPageState extends State<MapPage> {
   StreamSubscription<dynamic>? _friendsListSub;
   StreamSubscription<DocumentSnapshot>? _userDocSub;
   String _locationVisibility = 'all';
+  String? _currentUserIdForLocationCleanup;
 
   final Completer<void> _mapReadyCompleter = Completer<void>();
 
@@ -60,6 +60,12 @@ class _MapPageState extends State<MapPage> {
   void initState() {
     super.initState();
     _bootstrap();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _currentUserIdForLocationCleanup ??= context.read<UserProvider>().user?.id;
   }
 
   @override
@@ -71,9 +77,12 @@ class _MapPageState extends State<MapPage> {
       sub.cancel();
     }
     if (widget.userId == null) {
-      final uid = Provider.of<UserProvider>(context, listen: false).user?.id;
+      final uid = _currentUserIdForLocationCleanup;
       if (uid != null) {
-        FirebaseFirestore.instance.collection('user_locations').doc(uid).delete();
+        FirebaseFirestore.instance
+            .collection('user_locations')
+            .doc(uid)
+            .delete();
       }
     }
     super.dispose();
@@ -115,22 +124,28 @@ class _MapPageState extends State<MapPage> {
     if (perm == geo.LocationPermission.deniedForever) return null;
     try {
       return await geo.Geolocator.getCurrentPosition(
-          desiredAccuracy: geo.LocationAccuracy.high);
+        locationSettings: const geo.LocationSettings(
+          accuracy: geo.LocationAccuracy.high,
+        ),
+      );
     } catch (_) {
       return null;
     }
   }
 
   void _startPositionStream() {
-    _positionStream = geo.Geolocator.getPositionStream(
-      locationSettings: const geo.LocationSettings(
-          accuracy: geo.LocationAccuracy.high, distanceFilter: 10),
-    ).listen((geo.Position position) async {
-      if (!mounted) return;
-      setState(() => _currentPosition = position);
-      await _refreshUserAnnotation(position);
-      _publishMyLocation(position);
-    });
+    _positionStream =
+        geo.Geolocator.getPositionStream(
+          locationSettings: const geo.LocationSettings(
+            accuracy: geo.LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((geo.Position position) async {
+          if (!mounted) return;
+          setState(() => _currentPosition = position);
+          await _refreshUserAnnotation(position);
+          _publishMyLocation(position);
+        });
   }
 
   void _publishMyLocation(geo.Position pos) {
@@ -147,8 +162,11 @@ class _MapPageState extends State<MapPage> {
 
   bool _isCurrentCountryUnlocked(geo.Position pos) {
     if (_geoJsonData == null) return false;
-    final detected =
-        MapboxHelper.detectCountry(pos.latitude, pos.longitude, _geoJsonData!);
+    final detected = MapboxHelper.detectCountry(
+      pos.latitude,
+      pos.longitude,
+      _geoJsonData!,
+    );
     if (detected == null) return false;
     return _sharedCountries.any((c) => c['value'] == detected['value']);
   }
@@ -166,8 +184,9 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    final point =
-        Point(coordinates: Position(position.longitude, position.latitude));
+    final point = Point(
+      coordinates: Position(position.longitude, position.latitude),
+    );
 
     if (_userAnnotation == null) {
       _userAnnotation = await _pointAnnotationManager!.create(
@@ -195,69 +214,77 @@ class _MapPageState extends State<MapPage> {
         .collection('friends')
         .snapshots()
         .listen((snap) async {
-      if (!mounted) return;
-      final currentIds = snap.docs.map((d) => d['userId'] as String).toSet();
-
-      // Cancel subs for removed friends and delete their annotations
-      for (final id in _friendLocationSubs.keys.toList()) {
-        if (!currentIds.contains(id)) {
-          await _friendLocationSubs[id]?.cancel();
-          _friendLocationSubs.remove(id);
-          _friendAvatarCache.remove(id);
-          _friendData.remove(id);
-          _friendMapPoints.remove(id);
-          final ann = _friendAnnotations.remove(id);
-          if (ann != null) await _pointAnnotationManager?.delete(ann);
-        }
-      }
-
-      // Subscribe to new friends
-      for (final doc in snap.docs) {
-        final friendId = doc['userId'] as String;
-        if (_friendLocationSubs.containsKey(friendId)) continue;
-
-        // Fetch profile
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(friendId)
-            .get();
-        if (!userDoc.exists || !mounted) continue;
-        final data = userDoc.data()!;
-        final photoUrl = data['photoUrl'] as String?;
-        final displayName = data['displayName'] as String?;
-
-        _friendData[friendId] = {
-          'displayName': displayName,
-          'photoUrl': photoUrl,
-        };
-        _friendAvatarCache[friendId] =
-            await _buildFriendAvatar(photoUrl, displayName);
-
-        _friendLocationSubs[friendId] = FirebaseFirestore.instance
-            .collection('user_locations')
-            .doc(friendId)
-            .snapshots()
-            .listen((locDoc) async {
           if (!mounted) return;
-          if (!locDoc.exists) {
-            final ann = _friendAnnotations.remove(friendId);
-            if (ann != null) await _pointAnnotationManager?.delete(ann);
-            return;
+          final currentIds = snap.docs
+              .map((d) => d['userId'] as String)
+              .toSet();
+
+          // Cancel subs for removed friends and delete their annotations
+          for (final id in _friendLocationSubs.keys.toList()) {
+            if (!currentIds.contains(id)) {
+              await _friendLocationSubs[id]?.cancel();
+              _friendLocationSubs.remove(id);
+              _friendAvatarCache.remove(id);
+              _friendData.remove(id);
+              _friendMapPoints.remove(id);
+              final ann = _friendAnnotations.remove(id);
+              if (ann != null) await _pointAnnotationManager?.delete(ann);
+            }
           }
-          final lat = (locDoc['latitude'] as num).toDouble();
-          final lng = (locDoc['longitude'] as num).toDouble();
-          await _updateFriendAnnotation(friendId, lat, lng);
+
+          // Subscribe to new friends
+          for (final doc in snap.docs) {
+            final friendId = doc['userId'] as String;
+            if (_friendLocationSubs.containsKey(friendId)) continue;
+
+            // Fetch profile
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(friendId)
+                .get();
+            if (!userDoc.exists || !mounted) continue;
+            final data = userDoc.data()!;
+            final photoUrl = data['photoUrl'] as String?;
+            final displayName = data['displayName'] as String?;
+
+            _friendData[friendId] = {
+              'displayName': displayName,
+              'photoUrl': photoUrl,
+            };
+            _friendAvatarCache[friendId] = await _buildFriendAvatar(
+              photoUrl,
+              displayName,
+            );
+
+            _friendLocationSubs[friendId] = FirebaseFirestore.instance
+                .collection('user_locations')
+                .doc(friendId)
+                .snapshots()
+                .listen((locDoc) async {
+                  if (!mounted) return;
+                  if (!locDoc.exists) {
+                    final ann = _friendAnnotations.remove(friendId);
+                    if (ann != null) await _pointAnnotationManager?.delete(ann);
+                    return;
+                  }
+                  final lat = (locDoc['latitude'] as num).toDouble();
+                  final lng = (locDoc['longitude'] as num).toDouble();
+                  await _updateFriendAnnotation(friendId, lat, lng);
+                });
+          }
         });
-      }
-    });
   }
 
   Future<Uint8List> _buildFriendAvatar(
-      String? photoUrl, String? displayName) async {
+    String? photoUrl,
+    String? displayName,
+  ) async {
     const int size = 80;
     final recorder = ui.PictureRecorder();
-    final canvas =
-        Canvas(recorder, Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()));
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()),
+    );
     final paint = Paint()..isAntiAlias = true;
 
     paint.color = Colors.white;
@@ -269,21 +296,28 @@ class _MapPageState extends State<MapPage> {
       try {
         final response = await http.get(Uri.parse(photoUrl));
         if (response.statusCode == 200) {
-          final codec = await ui.instantiateImageCodec(response.bodyBytes,
-              targetWidth: size, targetHeight: size);
+          final codec = await ui.instantiateImageCodec(
+            response.bodyBytes,
+            targetWidth: size,
+            targetHeight: size,
+          );
           final frame = await codec.getNextFrame();
           final img = frame.image;
           canvas.save();
-          canvas.clipPath(Path()
-            ..addOval(Rect.fromCircle(
+          canvas.clipPath(
+            Path()..addOval(
+              Rect.fromCircle(
                 center: const Offset(size / 2, size / 2),
-                radius: size / 2 - 4)));
+                radius: size / 2 - 4,
+              ),
+            ),
+          );
           canvas.drawImageRect(
-              img,
-              Rect.fromLTWH(
-                  0, 0, img.width.toDouble(), img.height.toDouble()),
-              const Rect.fromLTRB(4, 4, size - 4, size - 4),
-              paint);
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            const Rect.fromLTRB(4, 4, size - 4, size - 4),
+            paint,
+          );
           canvas.restore();
         } else {
           _drawFallbackIcon(canvas, size);
@@ -302,7 +336,10 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _updateFriendAnnotation(
-      String friendId, double lat, double lng) async {
+    String friendId,
+    double lat,
+    double lng,
+  ) async {
     if (_pointAnnotationManager == null) return;
     final avatar = _friendAvatarCache[friendId];
     if (avatar == null) return;
@@ -338,7 +375,9 @@ class _MapPageState extends State<MapPage> {
     if (!mounted) return;
     final user = Provider.of<UserProvider>(context, listen: false).user;
     final filterUserId = widget.userId ?? user?.id;
-    final photos = await MyPhotoService.fetchAllPhotos(onlyUserId: filterUserId);
+    final photos = await MyPhotoService.fetchAllPhotos(
+      onlyUserId: filterUserId,
+    );
 
     if (photos.isEmpty) return;
 
@@ -347,15 +386,20 @@ class _MapPageState extends State<MapPage> {
       final lng = (photo['longitude'] as num).toDouble();
       return {
         'type': 'Feature',
-        'geometry': {'type': 'Point', 'coordinates': [lng, lat]},
-        'properties': {}
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [lng, lat],
+        },
+        'properties': {},
       };
     }).toList();
 
-    await _mapboxMap!.style.addSource(GeoJsonSource(
-      id: "photos-source",
-      data: jsonEncode({'type': 'FeatureCollection', 'features': features}),
-    ));
+    await _mapboxMap!.style.addSource(
+      GeoJsonSource(
+        id: "photos-source",
+        data: jsonEncode({'type': 'FeatureCollection', 'features': features}),
+      ),
+    );
 
     await _mapboxMap!.style.addStyleLayer(
       jsonEncode({
@@ -364,25 +408,48 @@ class _MapPageState extends State<MapPage> {
         'source': 'photos-source',
         'paint': {
           'heatmap-radius': [
-            'interpolate', ['linear'], ['zoom'],
-            0, 4, 8, 25, 13, 55, 16, 90,
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            0,
+            4,
+            8,
+            25,
+            13,
+            55,
+            16,
+            90,
           ],
           'heatmap-intensity': [
-            'interpolate', ['linear'], ['zoom'],
-            0, 0.8, 13, 2.0,
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            0,
+            0.8,
+            13,
+            2.0,
           ],
           'heatmap-opacity': 0.88,
           'heatmap-color': [
-            'interpolate', ['linear'], ['heatmap-density'],
-            0,    'rgba(0,0,0,0)',
-            0.10, 'rgba(65,105,225,0.35)',
-            0.25, 'rgba(0,191,255,0.60)',
-            0.45, 'rgba(0,230,180,0.75)',
-            0.65, 'rgba(220,240,0,0.85)',
-            0.82, 'rgba(255,150,0,0.92)',
-            1.0,  'rgb(255,20,0)',
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0,
+            'rgba(0,0,0,0)',
+            0.10,
+            'rgba(65,105,225,0.35)',
+            0.25,
+            'rgba(0,191,255,0.60)',
+            0.45,
+            'rgba(0,230,180,0.75)',
+            0.65,
+            'rgba(220,240,0,0.85)',
+            0.82,
+            'rgba(255,150,0,0.92)',
+            1.0,
+            'rgb(255,20,0)',
           ],
-        }
+        },
       }),
       null,
     );
@@ -395,20 +462,21 @@ class _MapPageState extends State<MapPage> {
     // Check if tapped on a friend avatar (44px hit area)
     for (final entry in _friendMapPoints.entries) {
       try {
-        final friendScreen =
-            await _mapboxMap!.pixelForCoordinate(entry.value);
+        final friendScreen = await _mapboxMap!.pixelForCoordinate(entry.value);
         final dx = (tapScreen.x - friendScreen.x).abs();
         final dy = (tapScreen.y - friendScreen.y).abs();
         if (dx < 44 && dy < 44) {
           if (!mounted) return;
           final data = _friendData[entry.key];
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => UserProfileScreen(
-              userId: entry.key,
-              initialDisplayName: data?['displayName'],
-              initialPhotoUrl: data?['photoUrl'],
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => UserProfileScreen(
+                userId: entry.key,
+                initialDisplayName: data?['displayName'],
+                initialPhotoUrl: data?['photoUrl'],
+              ),
             ),
-          ));
+          );
           return;
         }
       } catch (_) {}
@@ -444,8 +512,10 @@ class _MapPageState extends State<MapPage> {
 
     const int size = 96;
     final recorder = ui.PictureRecorder();
-    final canvas =
-        Canvas(recorder, Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()));
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble()),
+    );
     final paint = Paint()..isAntiAlias = true;
 
     paint.color = Colors.white;
@@ -457,21 +527,28 @@ class _MapPageState extends State<MapPage> {
       try {
         final response = await http.get(Uri.parse(photoUrl));
         if (response.statusCode == 200) {
-          final codec = await ui.instantiateImageCodec(response.bodyBytes,
-              targetWidth: size, targetHeight: size);
+          final codec = await ui.instantiateImageCodec(
+            response.bodyBytes,
+            targetWidth: size,
+            targetHeight: size,
+          );
           final frame = await codec.getNextFrame();
           final img = frame.image;
           final clipPath = Path()
-            ..addOval(Rect.fromCircle(
+            ..addOval(
+              Rect.fromCircle(
                 center: const Offset(size / 2, size / 2),
-                radius: size / 2 - 4));
+                radius: size / 2 - 4,
+              ),
+            );
           canvas.save();
           canvas.clipPath(clipPath);
           canvas.drawImageRect(
-              img,
-              Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-              const Rect.fromLTRB(4, 4, size - 4, size - 4),
-              paint);
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            const Rect.fromLTRB(4, 4, size - 4, size - 4),
+            paint,
+          );
           canvas.restore();
         } else {
           _drawFallbackIcon(canvas, size);
@@ -495,15 +572,17 @@ class _MapPageState extends State<MapPage> {
       ..isAntiAlias = true;
     canvas.drawCircle(Offset(size / 2, size / 2 - 8), 16, paint);
     canvas.drawArc(
-        Rect.fromCenter(
-            center: Offset(size / 2, size / 2 + 20), width: 40, height: 30),
-        3.14159,
-        3.14159,
-        true,
-        paint);
+      Rect.fromCenter(
+        center: Offset(size / 2, size / 2 + 20),
+        width: 40,
+        height: 30,
+      ),
+      3.14159,
+      3.14159,
+      true,
+      paint,
+    );
   }
-
-
 
   Future<void> _loadSharedCountriesAndColor() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
@@ -518,22 +597,22 @@ class _MapPageState extends State<MapPage> {
           .doc(targetId)
           .snapshots()
           .listen((doc) async {
-        if (!doc.exists || !mounted) return;
-        final data = doc.data();
-        if (data == null) return;
-        final raw = data['shared_countries'];
-        final newCountries = raw != null
-            ? (raw as List<dynamic>)
-                .map((e) => Map<String, String>.from(e))
-                .toList()
-            : <Map<String, String>>[];
-        if (_mapboxMap == null) return;
-        _sharedCountries = newCountries;
-        await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
-        if (_currentPosition != null) {
-          await _refreshUserAnnotation(_currentPosition!);
-        }
-      });
+            if (!doc.exists || !mounted) return;
+            final data = doc.data();
+            if (data == null) return;
+            final raw = data['shared_countries'];
+            final newCountries = raw != null
+                ? (raw as List<dynamic>)
+                      .map((e) => Map<String, String>.from(e))
+                      .toList()
+                : <Map<String, String>>[];
+            if (_mapboxMap == null) return;
+            _sharedCountries = newCountries;
+            await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
+            if (_currentPosition != null) {
+              await _refreshUserAnnotation(_currentPosition!);
+            }
+          });
     } else {
       // Harta altui utilizator: citire unică
       final doc = await FirebaseFirestore.instance
@@ -543,8 +622,9 @@ class _MapPageState extends State<MapPage> {
       final data = doc.data();
       if (data != null && data['shared_countries'] != null) {
         final List<dynamic> list = data['shared_countries'];
-        _sharedCountries =
-            list.map((e) => Map<String, String>.from(e)).toList();
+        _sharedCountries = list
+            .map((e) => Map<String, String>.from(e))
+            .toList();
         await MapboxHelper.colorCountries(_mapboxMap, _sharedCountries);
       }
     }
@@ -554,8 +634,7 @@ class _MapPageState extends State<MapPage> {
     if (widget.userId == null) {
       final uid = user?.id;
       if (uid != null) {
-        _locationVisibility =
-            await LocationGroupsService.getVisibility(uid);
+        _locationVisibility = await LocationGroupsService.getVisibility(uid);
       }
       _startWatchingFriends();
     }
@@ -564,8 +643,8 @@ class _MapPageState extends State<MapPage> {
   void _onMapCreated(MapboxMap mapboxMap) async {
     _mapboxMap = mapboxMap;
 
-    _pointAnnotationManager =
-        await mapboxMap.annotations.createPointAnnotationManager();
+    _pointAnnotationManager = await mapboxMap.annotations
+        .createPointAnnotationManager();
 
     mapboxMap.setOnMapTapListener(_onMapTap);
 
@@ -574,8 +653,7 @@ class _MapPageState extends State<MapPage> {
     await MapboxHelper.initFeatureState(mapboxMap);
 
     await mapboxMap.flyTo(
-      CameraOptions(
-          center: Point(coordinates: Position(0, 20)), zoom: 1.0),
+      CameraOptions(center: Point(coordinates: Position(0, 20)), zoom: 1.0),
       MapAnimationOptions(duration: 800),
     );
 
@@ -608,11 +686,21 @@ class _MapPageState extends State<MapPage> {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.travel_explore_rounded, color: Colors.white, size: 36),
+                    child: const Icon(
+                      Icons.travel_explore_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Se încarcă harta...',
-                      style: TextStyle(color: Color(0xFF6B7280), fontSize: 15, fontWeight: FontWeight.w500)),
+                  const Text(
+                    'Se încarcă harta...',
+                    style: TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   const SizedBox(
                     width: 120,
@@ -628,12 +716,11 @@ class _MapPageState extends State<MapPage> {
           : Stack(
               children: [
                 MapWidget(
-                  styleUri:
-                      "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
-                  gestureRecognizers:
-                      <Factory<OneSequenceGestureRecognizer>>{
+                  styleUri: "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
+                  gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
                     Factory<OneSequenceGestureRecognizer>(
-                        () => EagerGestureRecognizer()),
+                      () => EagerGestureRecognizer(),
+                    ),
                   },
                   onMapCreated: _onMapCreated,
                 ),
@@ -646,20 +733,26 @@ class _MapPageState extends State<MapPage> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: const [
                         BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 6,
-                            offset: Offset(0, 2))
+                          color: Colors.black26,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
                       ],
                     ),
                     child: widget.userId != null
                         ? IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_rounded,
-                                size: 20, color: Color(0xFF111827)),
+                            icon: const Icon(
+                              Icons.arrow_back_ios_rounded,
+                              size: 20,
+                              color: Color(0xFF111827),
+                            ),
                             onPressed: () => Navigator.pop(context),
                           )
                         : IconButton(
                             icon: Icon(
-                              _heatmapVisible ? Icons.layers : Icons.layers_clear,
+                              _heatmapVisible
+                                  ? Icons.layers
+                                  : Icons.layers_clear,
                               size: 22,
                               color: _heatmapVisible
                                   ? const Color(0xFF4F46E5)
@@ -701,12 +794,20 @@ class _MapPageState extends State<MapPage> {
                   ),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Icon(Icons.travel_explore_rounded, color: Colors.white, size: 28),
+                child: const Icon(
+                  Icons.travel_explore_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Permisiuni necesare',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -739,10 +840,15 @@ class _MapPageState extends State<MapPage> {
                     backgroundColor: const Color(0xFF4F46E5),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
-                  child: const Text('Permite', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  child: const Text(
+                    'Permite',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
                 ),
               ),
             ],
@@ -752,13 +858,22 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  static Widget _permissionRow(IconData icon, Color bg, Color color, String title, String subtitle) {
+  static Widget _permissionRow(
+    IconData icon,
+    Color bg,
+    Color color,
+    String title,
+    String subtitle,
+  ) {
     return Row(
       children: [
         Container(
           width: 42,
           height: 42,
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(width: 12),
@@ -766,8 +881,18 @@ class _MapPageState extends State<MapPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF111827))),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
             ],
           ),
         ),
@@ -789,4 +914,3 @@ class _MapPageState extends State<MapPage> {
     } catch (_) {}
   }
 }
-

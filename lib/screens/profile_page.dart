@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vasco/services/spotify_service.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:vasco/utils/scroll_utils.dart';
@@ -24,6 +24,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Stream<QuerySnapshot>? _photosStream;
   String? _streamUid;
+  UserProvider? _userProvider;
 
   @override
   void initState() {
@@ -32,8 +33,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       final userProvider = context.read<UserProvider>();
       _initStream(userProvider.user?.id);
-      userProvider.addListener(_onUserChanged);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userProvider = context.read<UserProvider>();
+    if (_userProvider == userProvider) return;
+    _userProvider?.removeListener(_onUserChanged);
+    _userProvider = userProvider;
+    _userProvider?.addListener(_onUserChanged);
   }
 
   void _onUserChanged() {
@@ -42,7 +52,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _initStream(String? uid) {
-    debugPrint('[ProfileScreen] _initStream called with uid: $uid, _streamUid: $_streamUid');
+    debugPrint(
+      '[ProfileScreen] _initStream called with uid: $uid, _streamUid: $_streamUid',
+    );
     if (uid == null || uid == _streamUid) return;
     setState(() {
       _streamUid = uid;
@@ -57,8 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
-    final userProvider = context.read<UserProvider>();
-    userProvider.removeListener(_onUserChanged);
+    _userProvider?.removeListener(_onUserChanged);
     super.dispose();
   }
 
@@ -76,7 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     final user = context.watch<UserProvider>().user;
     final friends = context.watch<FriendsProvider>().friends;
     if (user == null) {
@@ -104,9 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               // ── Header gradient ───────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: _ProfileHeader(user: user),
-              ),
+              SliverToBoxAdapter(child: _ProfileHeader(user: user)),
 
               // ── Stats cards 2x2 ──────────────────────────────────────────
               SliverToBoxAdapter(
@@ -116,9 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   photos: photosCount,
                   onCountriesTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => MapPage(userId: user.id),
-                    ),
+                    MaterialPageRoute(builder: (_) => MapPage(userId: user.id)),
                   ),
                   onFriendsTap: () => _showFriendsList(context, friends),
                 ),
@@ -135,16 +141,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const EditProfileScreen()),
+                              builder: (_) => const EditProfileScreen(),
+                            ),
                           ),
                           icon: const Icon(Icons.edit_rounded, size: 16),
                           label: const Text('Editează profilul'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF374151),
                             side: const BorderSide(
-                                color: Color(0xFFE5E7EB), width: 1.5),
+                              color: Color(0xFFE5E7EB),
+                              width: 1.5,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -155,15 +165,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const DatingPreferencesScreen()),
+                              builder: (_) => const DatingPreferencesScreen(),
+                            ),
                           ),
                           icon: const Icon(Icons.search, size: 16),
                           label: const Text('Întâlnește persoane noi'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFE11D48),
-                            side: const BorderSide(color: Color(0xFFFDA4AF), width: 1.5),
+                            side: const BorderSide(
+                              color: Color(0xFFFDA4AF),
+                              width: 1.5,
+                            ),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -174,14 +189,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               // ── Spotify ───────────────────────────────────────────────────
-              const SliverToBoxAdapter(
-                child: _SpotifyConnectTile(),
-              ),
+              const SliverToBoxAdapter(child: _SpotifyConnectTile()),
 
               // ── Călătoriile mele ──────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: _TripsSection(photoDocs: photoDocs),
-              ),
+              SliverToBoxAdapter(child: _TripsSection(photoDocs: photoDocs)),
 
               // ── Realizări ─────────────────────────────────────────────────
               SliverToBoxAdapter(
@@ -232,14 +243,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const Text(
                       'Prieteni',
                       style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827)),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF111827),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(20),
@@ -247,9 +261,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Text(
                         '${friends.length}',
                         style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF374151)),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151),
+                        ),
                       ),
                     ),
                   ],
@@ -258,8 +273,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (friends.isEmpty)
                 const Expanded(
                   child: Center(
-                    child: Text('Nu ai niciun prieten încă.',
-                        style: TextStyle(color: Color(0xFF9CA3AF))),
+                    child: Text(
+                      'Nu ai niciun prieten încă.',
+                      style: TextStyle(color: Color(0xFF9CA3AF)),
+                    ),
                   ),
                 )
               else
@@ -273,7 +290,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(14),
@@ -282,15 +301,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             CircleAvatar(
                               radius: 22,
-                              backgroundImage:
-                                  (f.photoUrl?.isNotEmpty == true)
-                                      ? NetworkImage(f.photoUrl!)
-                                      : null,
+                              backgroundImage: (f.photoUrl?.isNotEmpty == true)
+                                  ? NetworkImage(f.photoUrl!)
+                                  : null,
                               backgroundColor: const Color(0xFFE5E7EB),
                               child: (f.photoUrl?.isNotEmpty == true)
                                   ? null
-                                  : const Icon(Icons.person_rounded,
-                                      color: Color(0xFF9CA3AF), size: 22),
+                                  : const Icon(
+                                      Icons.person_rounded,
+                                      color: Color(0xFF9CA3AF),
+                                      size: 22,
+                                    ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -327,14 +348,15 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final initials = (user.displayName?.isNotEmpty == true)
         ? user.displayName!
-            .trim()
-            .split(' ')
-            .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
-            .take(2)
-            .join()
+              .trim()
+              .split(' ')
+              .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
+              .take(2)
+              .join()
         : 'TU';
 
-    final username = '@${(user.displayName ?? 'username').toLowerCase().replaceAll(' ', '_')}';
+    final username =
+        '@${(user.displayName ?? 'username').toLowerCase().replaceAll(' ', '_')}';
 
     return Container(
       width: double.infinity,
@@ -365,12 +387,14 @@ class _ProfileHeader extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.settings_rounded,
-                        color: Colors.white, size: 22),
+                    icon: const Icon(
+                      Icons.settings_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const SettingsPage()),
+                      MaterialPageRoute(builder: (_) => const SettingsPage()),
                     ),
                   ),
                 ],
@@ -394,13 +418,11 @@ class _ProfileHeader extends StatelessWidget {
                 ),
                 child: CircleAvatar(
                   radius: 46,
-                  backgroundImage:
-                      (user.photoUrl?.isNotEmpty == true)
-                          ? NetworkImage(user.photoUrl!)
-                          : null,
+                  backgroundImage: (user.photoUrl?.isNotEmpty == true)
+                      ? NetworkImage(user.photoUrl!)
+                      : null,
                   backgroundColor: const Color(0xFFEEF2FF),
-                  child: (user.photoUrl == null ||
-                          user.photoUrl!.isEmpty)
+                  child: (user.photoUrl == null || user.photoUrl!.isEmpty)
                       ? Text(
                           initials,
                           style: const TextStyle(
@@ -563,10 +585,7 @@ class _StatCard extends StatelessWidget {
               ),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF6B7280),
-                ),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),
             ],
           ),
@@ -587,8 +606,7 @@ class _TripsSection extends StatelessWidget {
     final map = <String, List<QueryDocumentSnapshot>>{};
     for (final doc in photoDocs) {
       final data = doc.data() as Map<String, dynamic>;
-      final country =
-          data['countryName'] as String? ?? 'Altele';
+      final country = data['countryName'] as String? ?? 'Altele';
       map.putIfAbsent(country, () => []).add(doc);
     }
     return map;
@@ -620,21 +638,27 @@ class _TripsSection extends StatelessWidget {
               ),
               child: const Column(
                 children: [
-                  Icon(Icons.photo_camera_outlined,
-                      size: 40, color: Color(0xFFD1D5DB)),
+                  Icon(
+                    Icons.photo_camera_outlined,
+                    size: 40,
+                    color: Color(0xFFD1D5DB),
+                  ),
                   SizedBox(height: 8),
-                  Text('Nicio fotografie încă',
-                      style: TextStyle(color: Color(0xFF9CA3AF))),
+                  Text(
+                    'Nicio fotografie încă',
+                    style: TextStyle(color: Color(0xFF9CA3AF)),
+                  ),
                 ],
               ),
             )
           else
-            ..._groupByCountry().entries.map((entry) =>
-                _CountryPhotoRow(
-                  country: entry.key,
-                  docs: entry.value,
-                  allDocs: photoDocs,
-                )),
+            ..._groupByCountry().entries.map(
+              (entry) => _CountryPhotoRow(
+                country: entry.key,
+                docs: entry.value,
+                allDocs: photoDocs,
+              ),
+            ),
         ],
       ),
     );
@@ -661,8 +685,11 @@ class _CountryPhotoRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.public_rounded,
-                  size: 16, color: Color(0xFF4F46E5)),
+              const Icon(
+                Icons.public_rounded,
+                size: 16,
+                color: Color(0xFF4F46E5),
+              ),
               const SizedBox(width: 6),
               Text(
                 country,
@@ -675,8 +702,7 @@ class _CountryPhotoRow extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${docs.length} ${docs.length == 1 ? 'fotografie' : 'fotografii'}',
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF9CA3AF)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
               ),
             ],
           ),
@@ -814,9 +840,7 @@ class _AchievementTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: data.isUnlocked
-            ? data.unlockedColor
-            : const Color(0xFFF9FAFB),
+        color: data.isUnlocked ? data.unlockedColor : const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: data.isUnlocked
@@ -899,10 +923,20 @@ class _SpotifyConnectTileState extends State<_SpotifyConnectTile> {
     setState(() => _isLoading = true);
     if (_isConnected == true) {
       await SpotifyService.logout();
-      if (mounted) setState(() { _isConnected = false; _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _isConnected = false;
+          _isLoading = false;
+        });
+      }
     } else {
       final success = await SpotifyService.login();
-      if (mounted) setState(() { _isConnected = success; _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _isConnected = success;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -952,8 +986,8 @@ class _SpotifyConnectTileState extends State<_SpotifyConnectTile> {
                       _isConnected == null
                           ? 'Se verifică...'
                           : _isConnected == true
-                              ? 'Conectat — muzica apare la postări'
-                              : 'Conectează pentru a adăuga muzică',
+                          ? 'Conectat — muzica apare la postări'
+                          : 'Conectează pentru a adăuga muzică',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF6B7280),
@@ -967,7 +1001,9 @@ class _SpotifyConnectTileState extends State<_SpotifyConnectTile> {
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Color(0xFF1DB954)),
+                    strokeWidth: 2,
+                    color: Color(0xFF1DB954),
+                  ),
                 )
               else
                 Icon(
@@ -998,8 +1034,7 @@ void showPostOptions(
   showDialog(
     context: context,
     builder: (ctx) => Dialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1009,42 +1044,58 @@ void showPostOptions(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_rounded,
-                      color: Color(0xFF4F46E5)),
+                  icon: const Icon(
+                    Icons.edit_rounded,
+                    color: Color(0xFF4F46E5),
+                  ),
                   onPressed: () {
                     Navigator.pop(ctx);
                     _showEditDialog(
-                        context, postId, data['description'], postRepo);
+                      context,
+                      postId,
+                      data['description'],
+                      postRepo,
+                    );
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_rounded,
-                      color: Color(0xFFEF4444)),
+                  icon: const Icon(
+                    Icons.delete_rounded,
+                    color: Color(0xFFEF4444),
+                  ),
                   onPressed: () {
                     Navigator.pop(ctx);
                     _showDeleteConfirmation(
-                        context, postId, data['imageUrl'], postRepo);
+                      context,
+                      postId,
+                      data['imageUrl'],
+                      postRepo,
+                    );
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded,
-                      color: Color(0xFF9CA3AF)),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFF9CA3AF),
+                  ),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
             ),
           ),
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(bottom: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(20),
+            ),
             child: Image.network(data['imageUrl']),
           ),
           if ((data['description'] as String? ?? '').isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(data['description'],
-                  style: const TextStyle(
-                      fontSize: 15, color: Color(0xFF374151))),
+              child: Text(
+                data['description'],
+                style: const TextStyle(fontSize: 15, color: Color(0xFF374151)),
+              ),
             ),
         ],
       ),
@@ -1052,20 +1103,24 @@ void showPostOptions(
   );
 }
 
-void _showEditDialog(BuildContext context, String postId,
-    String? currentDesc, PostRepository postRepo) {
+void _showEditDialog(
+  BuildContext context,
+  String postId,
+  String? currentDesc,
+  PostRepository postRepo,
+) {
   final controller = TextEditingController(text: currentDesc);
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('Editează'),
       content: TextField(controller: controller),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Anulează')),
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Anulează'),
+        ),
         ElevatedButton(
           onPressed: () async {
             await postRepo.editPost(postId, controller.text);
@@ -1078,22 +1133,27 @@ void _showEditDialog(BuildContext context, String postId,
   );
 }
 
-void _showDeleteConfirmation(BuildContext context, String postId,
-    String imageUrl, PostRepository postRepo) {
+void _showDeleteConfirmation(
+  BuildContext context,
+  String postId,
+  String imageUrl,
+  PostRepository postRepo,
+) {
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('Ștergi postarea?'),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Nu')),
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Nu'),
+        ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white),
+            backgroundColor: const Color(0xFFEF4444),
+            foregroundColor: Colors.white,
+          ),
           onPressed: () async {
             await postRepo.deletePost(postId, imageUrl);
             if (ctx.mounted) Navigator.pop(ctx);
@@ -1104,4 +1164,3 @@ void _showDeleteConfirmation(BuildContext context, String postId,
     ),
   );
 }
-

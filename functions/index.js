@@ -65,7 +65,8 @@ exports.sendFriendRequest = onCall(async (request) => {
     throw new HttpsError("failed-precondition", "Sunteți deja prieteni.");
   }
 
-  await db.collection("friend_requests").add({
+  const requestRef = db.collection("friend_requests").doc(`${callerUid}_${toUserId}`);
+  await requestRef.set({
     fromUserId: callerUid,
     toUserId,
     status: "pending",
@@ -155,7 +156,9 @@ exports.deletePost = onCall(async (request) => {
   if (imageUrl) {
     try {
       const filePath = extractStoragePath(imageUrl);
-      if (filePath) await getStorage().bucket().file(filePath).delete();
+      if (filePath && filePath.startsWith(`posts/${callerUid}/`)) {
+        await getStorage().bucket().file(filePath).delete();
+      }
     } catch (err) {
       console.error("Eroare Storage:", err);
     }
@@ -173,24 +176,25 @@ exports.toggleLike = onCall(async (request) => {
   if (!postId) throw new HttpsError("invalid-argument", "postId este necesar.");
   if (!ALLOWED.includes(col)) throw new HttpsError("invalid-argument", "Collection invalidă.");
 
-  const postRef = db.collection(col).doc(postId);
-  const likeRef = postRef.collection("likes").doc(callerUid);
+  const result = await db.runTransaction(async (tx) => {
+    const postRef = db.collection(col).doc(postId);
+    const likeRef = postRef.collection("likes").doc(callerUid);
 
-  const [postDoc, likeDoc] = await Promise.all([postRef.get(), likeRef.get()]);
-  if (!postDoc.exists) throw new HttpsError("not-found", "Postarea nu există.");
+    const [postDoc, likeDoc] = await Promise.all([tx.get(postRef), tx.get(likeRef)]);
+    if (!postDoc.exists) throw new HttpsError("not-found", "Postarea nu există.");
 
-  const batch = db.batch();
-  if (likeDoc.exists) {
-    batch.delete(likeRef);
-    batch.update(postRef, { likesCount: FieldValue.increment(-1) });
-    await batch.commit();
-    return { liked: false };
-  } else {
-    batch.set(likeRef, { userId: callerUid, createdAt: Timestamp.now() });
-    batch.update(postRef, { likesCount: FieldValue.increment(1) });
-    await batch.commit();
+    if (likeDoc.exists) {
+      tx.delete(likeRef);
+      tx.update(postRef, { likesCount: FieldValue.increment(-1) });
+      return { liked: false };
+    }
+
+    tx.set(likeRef, { userId: callerUid, createdAt: Timestamp.now() });
+    tx.update(postRef, { likesCount: FieldValue.increment(1) });
     return { liked: true };
-  }
+  });
+
+  return result;
 });
 
 // ─── COMMENTS ─────────────────────────────────────────────────────────────────
