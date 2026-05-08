@@ -85,105 +85,161 @@ Future<void> _register() async {
 
 @override
 Widget build(BuildContext context) {
-  // 1. Ascultăm starea din AuthViewModel (Provider) pentru a detecta loading-ul [cite: 7, 14]
   final authVM = context.watch<AuthViewModel>();
 
   return Scaffold(
-    appBar: AppBar(title: const Text('Register')),
-    body: SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey, // Folosit pentru validarea locală Regex [cite: 17]
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Câmp Nume
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                border: UnderlineInputBorder(), // Uniformizare design
-              ),
-              validator: (value) =>
-                  value?.isEmpty ?? true ? 'Please enter your username' : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Câmp Email cu validare Regex locală [cite: 17]
-            TextFormField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: UnderlineInputBorder(),
-              ),
-              validator: _validateEmail,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-
-            // Câmp Parolă cu vizibilitate (ochi) 
-            TextFormField( // Schimbat din TextField în TextFormField pentru consistență
-              controller: _passwordController,
-              obscureText: !_isPasswordVisible,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: const Icon(Icons.lock),
-                border: const UnderlineInputBorder(),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.deepPurple, width: 2),
+    backgroundColor: Colors.transparent,
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF69B9FF), Color(0xFF4A7CFF)],
+        ),
+      ),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 24),
+                Text(
+                  'Create Account',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.92),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
-                ),
-              ),
-              validator: (value) => (value?.length ?? 0) < 6 
-                  ? 'Password must be at least 6 characters' 
-                  : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Câmp Confirmare Parolă
-            TextFormField(
-              controller: _confirmPasswordController,
-              decoration: const InputDecoration(
-                labelText: 'Confirm Password',
-                border: UnderlineInputBorder(),
-              ),
-              obscureText: true,
-              validator: (value) => value != _passwordController.text
-                  ? 'Passwords do not match'
-                  : null,
-            ),
-            const SizedBox(height: 24),
-
-            // 2. Butonul reparat care folosește authVM.isLoading 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                // Dezactivăm butonul dacă procesul de înregistrare este în curs 
-                onPressed: authVM.isLoading ? null : _register,
-                child: authVM.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.deepPurple,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Register now to start using Vasco',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                      const SizedBox(height: 28),
+                      _buildInput(
+                        controller: _nameController,
+                        hintText: 'Username',
+                        icon: Icons.person,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInput(
+                        controller: _emailController,
+                        hintText: 'Email',
+                        icon: Icons.email,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInput(
+                        controller: _passwordController,
+                        hintText: 'Password',
+                        icon: Icons.lock,
+                        obscureText: !_isPasswordVisible,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                            color: Colors.grey[700],
+                          ),
+                          onPressed: () {
+                            setState(() => _isPasswordVisible = !_isPasswordVisible);
+                          },
                         ),
-                      )
-                    : const Text('Register'),
-              ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInput(
+                        controller: _confirmPasswordController,
+                        hintText: 'Confirm Password',
+                        icon: Icons.lock,
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4A7CFF),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        onPressed: authVM.isLoading ? null : _register,
+                        child: authVM.isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Register'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: authVM.isLoading ? null : () => Navigator.pop(context),
+                        child: const Text('Already have an account? Sign In'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     ),
   );
-}}
+}
+
+Widget _buildInput({
+  required TextEditingController controller,
+  required String hintText,
+  required IconData icon,
+  bool obscureText = false,
+  Widget? suffixIcon,
+  TextInputType keyboardType = TextInputType.text,
+}) {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixIcon: Icon(icon, color: Colors.grey[700]),
+        suffixIcon: suffixIcon,
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      ),
+      validator: hintText == 'Email'
+          ? _validateEmail
+          : hintText == 'Confirm Password'
+              ? (value) => value != _passwordController.text ? 'Passwords do not match' : null
+              : (value) => (value?.isEmpty ?? true) ? 'Please enter ${hintText.toLowerCase()}' : null,
+    ),
+  );
+}
+}
