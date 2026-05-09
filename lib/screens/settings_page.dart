@@ -40,23 +40,37 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _toggleLocationSharing(String uid) async {
+    if (_locationLoading) return;
     final current = _locationSharing ?? true;
-    setState(() => _locationLoading = true);
+    setState(() {
+      _locationSharing = !current;
+      _locationLoading = true;
+    });
     try {
       await LocationGroupsService.setVisibility(uid, current ? 'none' : 'all');
-      if (mounted) setState(() => _locationSharing = !current);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _locationSharing = current);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
     } finally {
       if (mounted) setState(() => _locationLoading = false);
     }
   }
 
   Future<void> _togglePrivacy(String uid, bool currentValue) async {
+    if (_privacyLoading) return;
     setState(() => _privacyLoading = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .update({'isPrivate': !currentValue});
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'isPrivate': !currentValue,
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
     } finally {
       if (mounted) setState(() => _privacyLoading = false);
     }
@@ -104,7 +118,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     backgroundColor: const Color(0xFFF3F4F6),
                     child: (user.photoUrl?.isNotEmpty == true)
                         ? null
-                        : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF), size: 28),
+                        : const Icon(
+                            Icons.person_rounded,
+                            color: Color(0xFF9CA3AF),
+                            size: 28,
+                          ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -121,7 +139,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         Text(
                           user.email,
-                          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                          style: const TextStyle(
+                            color: Color(0xFF9CA3AF),
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -135,7 +156,12 @@ class _SettingsPageState extends State<SettingsPage> {
           // ── Secțiunea Profil ───────────────────────────────────────────────
           const Text(
             'PROFIL',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 1.2),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF9CA3AF),
+              letterSpacing: 1.2,
+            ),
           ),
           const SizedBox(height: 8),
           _tile(
@@ -156,7 +182,9 @@ class _SettingsPageState extends State<SettingsPage> {
             label: 'Interesele Mele',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const DatingPreferencesScreen()),
+              MaterialPageRoute(
+                builder: (_) => const DatingPreferencesScreen(),
+              ),
             ),
           ),
           const SizedBox(height: 28),
@@ -164,7 +192,12 @@ class _SettingsPageState extends State<SettingsPage> {
           // ── Secțiunea Confidențialitate ────────────────────────────────────
           const Text(
             'CONFIDENȚIALITATE',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 1.2),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF9CA3AF),
+              letterSpacing: 1.2,
+            ),
           ),
           const SizedBox(height: 8),
           if (user != null)
@@ -190,8 +223,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: const Color(0xFFEEF2FF),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.visibility_rounded,
-                        color: Color(0xFF4F46E5), size: 19),
+                    child: const Icon(
+                      Icons.visibility_rounded,
+                      color: Color(0xFF4F46E5),
+                      size: 19,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -224,11 +260,15 @@ class _SettingsPageState extends State<SettingsPage> {
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Color(0xFF4F46E5)),
+                            strokeWidth: 2,
+                            color: Color(0xFF4F46E5),
+                          ),
                         )
                       : Switch(
                           value: _locationSharing!,
-                          onChanged: (_) => _toggleLocationSharing(user.id),
+                          onChanged: _locationLoading
+                              ? null
+                              : (_) => _toggleLocationSharing(user.id),
                           activeThumbColor: const Color(0xFF4F46E5),
                           activeTrackColor: const Color(0xFFEDE9FE),
                         ),
@@ -259,8 +299,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: const Color(0xFFF3E8FF),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.lock_rounded,
-                        color: Color(0xFF7C3AED), size: 19),
+                    child: const Icon(
+                      Icons.lock_rounded,
+                      color: Color(0xFF7C3AED),
+                      size: 19,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -293,12 +336,15 @@ class _SettingsPageState extends State<SettingsPage> {
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Color(0xFF7C3AED)),
+                            strokeWidth: 2,
+                            color: Color(0xFF7C3AED),
+                          ),
                         )
                       : Switch(
                           value: user.isPrivate,
-                          onChanged: (_) =>
-                              _togglePrivacy(user.id, user.isPrivate),
+                          onChanged: _privacyLoading
+                              ? null
+                              : (_) => _togglePrivacy(user.id, user.isPrivate),
                           activeThumbColor: const Color(0xFF7C3AED),
                           activeTrackColor: const Color(0xFFEDE9FE),
                         ),
@@ -310,7 +356,12 @@ class _SettingsPageState extends State<SettingsPage> {
           // ── Secțiunea Altele ───────────────────────────────────────────────
           const Text(
             'ALTELE',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF), letterSpacing: 1.2),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF9CA3AF),
+              letterSpacing: 1.2,
+            ),
           ),
           const SizedBox(height: 8),
           _tile(
@@ -356,7 +407,10 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               width: 38,
               height: 38,
-              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Icon(icon, color: iconColor, size: 19),
             ),
             const SizedBox(width: 14),
@@ -371,7 +425,11 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             if (showArrow)
-              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFD1D5DB)),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Color(0xFFD1D5DB),
+              ),
           ],
         ),
       ),
@@ -380,70 +438,115 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _confirmLogout(BuildContext context, AuthService authService) {
     final nav = Navigator.of(context, rootNavigator: true);
+    var isSigningOut = false;
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(18),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: Color(0xFFEF4444),
+                    size: 28,
+                  ),
                 ),
-                child: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 28),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Deconectare',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Ești sigur că vrei să te deconectezi?',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      ),
-                      child: const Text('Anulează', style: TextStyle(color: Color(0xFF374151))),
-                    ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Deconectare',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        await authService.signOut();
-                        nav.popUntil((route) => route.isFirst);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Ești sigur că vrei să te deconectezi?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: isSigningOut
+                            ? null
+                            : () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        child: const Text(
+                          'Anulează',
+                          style: TextStyle(color: Color(0xFF374151)),
+                        ),
                       ),
-                      child: const Text('Deconectează'),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isSigningOut
+                            ? null
+                            : () async {
+                                setDialogState(() => isSigningOut = true);
+                                try {
+                                  await authService.signOut();
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  if (nav.mounted) {
+                                    nav.popUntil((route) => route.isFirst);
+                                  }
+                                } catch (e) {
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(content: Text('Eroare: $e')),
+                                    );
+                                    setDialogState(() => isSigningOut = false);
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: isSigningOut
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Deconectează'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

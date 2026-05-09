@@ -1,4 +1,4 @@
-﻿import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'dart:async';
 import 'package:vasco/utils/scroll_utils.dart';
 import 'package:flutter/material.dart';
@@ -39,10 +39,12 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     final filtered = _query.isEmpty
         ? <UserModel>[]
         : friends
-            .where((f) => (f.displayName ?? '')
-                .toLowerCase()
-                .contains(_query.toLowerCase()))
-            .toList();
+              .where(
+                (f) => (f.displayName ?? '').toLowerCase().contains(
+                  _query.toLowerCase(),
+                ),
+              )
+              .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -55,12 +57,18 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               onChanged: (v) => setState(() => _query = v.trim()),
               decoration: InputDecoration(
                 hintText: 'Caută prieteni…',
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: Color(0xFF9CA3AF), size: 20),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: Color(0xFF9CA3AF),
+                  size: 20,
+                ),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear_rounded,
-                            size: 18, color: Color(0xFF9CA3AF)),
+                        icon: const Icon(
+                          Icons.clear_rounded,
+                          size: 18,
+                          color: Color(0xFF9CA3AF),
+                        ),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _query = '');
@@ -70,7 +78,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -81,8 +91,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           Expanded(
             child: _query.isNotEmpty
                 ? _buildSearchResults(filtered, currentUser.id)
-                : _buildConversationsList(conversations, currentUser.id,
-                    friends),
+                : _buildConversationsList(
+                    conversations,
+                    currentUser.id,
+                    friends,
+                  ),
           ),
         ],
       ),
@@ -110,8 +123,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     );
   }
 
-  Widget _buildConversationsList(List<ConversationModel> conversations,
-      String currentUserId, List<UserModel> friends) {
+  Widget _buildConversationsList(
+    List<ConversationModel> conversations,
+    String currentUserId,
+    List<UserModel> friends,
+  ) {
     final validConversations = conversations.where((c) {
       final otherId = c.participantIds.firstWhere(
         (id) => id != currentUserId,
@@ -138,10 +154,12 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               provider.init(currentUserId);
               final completer = Completer<void>();
               void listener() {
-                if (provider.conversations != oldConvs && !completer.isCompleted) {
+                if (provider.conversations != oldConvs &&
+                    !completer.isCompleted) {
                   completer.complete();
                 }
               }
+
               provider.addListener(listener);
               await Future.any(<Future<void>>[
                 completer.future,
@@ -169,22 +187,19 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               ),
             ),
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (_, i) {
-                  final isLast = i == validConversations.length - 1;
-                  return Column(
-                    children: [
-                      _ConvTile(
-                        conv: validConversations[i],
-                        currentUserId: currentUserId,
-                      ),
-                      if (!isLast)
-                        const Divider(height: 1, indent: 80, endIndent: 16),
-                    ],
-                  );
-                },
-                childCount: validConversations.length,
-              ),
+              delegate: SliverChildBuilderDelegate((_, i) {
+                final isLast = i == validConversations.length - 1;
+                return Column(
+                  children: [
+                    _ConvTile(
+                      conv: validConversations[i],
+                      currentUserId: currentUserId,
+                    ),
+                    if (!isLast)
+                      const Divider(height: 1, indent: 80, endIndent: 16),
+                  ],
+                );
+              }, childCount: validConversations.length),
             ),
           ],
           if (friends.isNotEmpty) ...[
@@ -203,22 +218,19 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               ),
             ),
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) {
-                  final isLast = i == friends.length - 1;
-                  return Column(
-                    children: [
-                      _FriendTile(
-                        friend: friends[i],
-                        currentUserId: currentUserId,
-                      ),
-                      if (!isLast)
-                        const Divider(height: 1, indent: 72, endIndent: 16),
-                    ],
-                  );
-                },
-                childCount: friends.length,
-              ),
+              delegate: SliverChildBuilderDelegate((ctx, i) {
+                final isLast = i == friends.length - 1;
+                return Column(
+                  children: [
+                    _FriendTile(
+                      friend: friends[i],
+                      currentUserId: currentUserId,
+                    ),
+                    if (!isLast)
+                      const Divider(height: 1, indent: 72, endIndent: 16),
+                  ],
+                );
+              }, childCount: friends.length),
             ),
           ],
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -267,61 +279,94 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
 // ─── Tile prieten (pentru search + lista toți) ────────────────────────────────
 
-class _FriendTile extends StatelessWidget {
+class _FriendTile extends StatefulWidget {
   final UserModel friend;
   final String currentUserId;
 
   const _FriendTile({required this.friend, required this.currentUserId});
 
   @override
+  State<_FriendTile> createState() => _FriendTileState();
+}
+
+class _FriendTileState extends State<_FriendTile> {
+  bool _openingChat = false;
+
+  @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () async {
-        final msgProvider = context.read<MessagingProvider>();
-        final convId = await msgProvider.openChat(currentUserId, friend.id);
-        if (context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChatScreen(
-                conversationId: convId,
-                currentUserId: currentUserId,
-                otherUserId: friend.id,
-                otherUserName: friend.displayName ?? 'Utilizator',
-                otherUserPhoto: friend.photoUrl,
-              ),
-            ),
-          );
-        }
-      },
+      onTap: _openingChat ? null : _openChat,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundImage: friend.photoUrl != null
-                  ? NetworkImage(friend.photoUrl!)
+              backgroundImage: widget.friend.photoUrl != null
+                  ? NetworkImage(widget.friend.photoUrl!)
                   : null,
               backgroundColor: const Color(0xFFF3F4F6),
-              child: friend.photoUrl == null
-                  ? const Icon(Icons.person_rounded,
-                      color: Color(0xFF9CA3AF), size: 20)
+              child: widget.friend.photoUrl == null
+                  ? const Icon(
+                      Icons.person_rounded,
+                      color: Color(0xFF9CA3AF),
+                      size: 20,
+                    )
                   : null,
             ),
             const SizedBox(width: 12),
-            Text(
-              friend.displayName ?? 'Utilizator',
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 15,
-                color: Color(0xFF111827),
+            Expanded(
+              child: Text(
+                widget.friend.displayName ?? 'Utilizator',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  color: Color(0xFF111827),
+                ),
               ),
             ),
+            if (_openingChat)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openChat() async {
+    if (_openingChat) return;
+    setState(() => _openingChat = true);
+    try {
+      final msgProvider = context.read<MessagingProvider>();
+      final convId = await msgProvider.openChat(
+        widget.currentUserId,
+        widget.friend.id,
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            conversationId: convId,
+            currentUserId: widget.currentUserId,
+            otherUserId: widget.friend.id,
+            otherUserName: widget.friend.displayName ?? 'Utilizator',
+            otherUserPhoto: widget.friend.photoUrl,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Nu pot deschide chat-ul: $e')));
+    } finally {
+      if (mounted) setState(() => _openingChat = false);
+    }
   }
 }
 
@@ -424,17 +469,23 @@ class _ConvTileState extends State<_ConvTile> {
                           color: const Color(0xFFEEF2FF),
                           borderRadius: BorderRadius.circular(26),
                         ),
-                        child: const Icon(Icons.group_rounded,
-                            color: Color(0xFF4F46E5), size: 26),
+                        child: const Icon(
+                          Icons.group_rounded,
+                          color: Color(0xFF4F46E5),
+                          size: 26,
+                        ),
                       )
                     : CircleAvatar(
                         radius: 26,
-                        backgroundImage:
-                            photo != null ? NetworkImage(photo) : null,
+                        backgroundImage: photo != null
+                            ? NetworkImage(photo)
+                            : null,
                         backgroundColor: const Color(0xFFF3F4F6),
                         child: photo == null
-                            ? const Icon(Icons.person_rounded,
-                                color: Color(0xFF9CA3AF))
+                            ? const Icon(
+                                Icons.person_rounded,
+                                color: Color(0xFF9CA3AF),
+                              )
                             : null,
                       ),
                 if (unread > 0)
@@ -511,7 +562,9 @@ class _ConvTileState extends State<_ConvTile> {
                         Container(
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF4F46E5),
                             borderRadius: BorderRadius.circular(10),
@@ -536,4 +589,3 @@ class _ConvTileState extends State<_ConvTile> {
     );
   }
 }
-

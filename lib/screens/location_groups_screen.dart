@@ -28,8 +28,10 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
       Provider.of<UserProvider>(context, listen: false).user?.id;
 
   Future<void> _setVisibility(String visibility) async {
+    if (_saving || visibility == _activeVisibility) return;
     final uid = _userId;
     if (uid == null) return;
+    final previousVisibility = _activeVisibility;
     setState(() {
       _activeVisibility = visibility;
       _saving = true;
@@ -38,9 +40,10 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
       await LocationGroupsService.setVisibility(uid, visibility);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Eroare: $e')),
-      );
+      setState(() => _activeVisibility = previousVisibility);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -49,6 +52,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
   Future<void> _showCreateGroupDialog(List<UserModel> friends) async {
     final nameController = TextEditingController();
     final selected = <String>{};
+    var isCreating = false;
 
     await showDialog<void>(
       context: context,
@@ -70,9 +74,10 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 12),
-                const Text('Adaugă prieteni:',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text(
+                  'Adaugă prieteni:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
                 const SizedBox(height: 6),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 220),
@@ -84,8 +89,10 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
                       final isSelected = selected.contains(f.id);
                       return CheckboxListTile(
                         dense: true,
-                        title: Text(f.displayName ?? f.email,
-                            style: const TextStyle(fontSize: 14)),
+                        title: Text(
+                          f.displayName ?? f.email,
+                          style: const TextStyle(fontSize: 14),
+                        ),
                         value: isSelected,
                         onChanged: (_) => setInner(() {
                           if (isSelected) {
@@ -112,25 +119,38 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: isCreating ? null : () => Navigator.pop(ctx),
               child: const Text('Anulează'),
             ),
             FilledButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                Navigator.pop(ctx);
-                try {
-                  await LocationGroupsService.createGroup(
-                      name, selected.toList());
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Eroare: $e')),
-                  );
-                }
-              },
-              child: const Text('Crează'),
+              onPressed: isCreating
+                  ? null
+                  : () async {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+                      setInner(() => isCreating = true);
+                      try {
+                        await LocationGroupsService.createGroup(
+                          name,
+                          selected.toList(),
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+                      } finally {
+                        if (ctx.mounted) setInner(() => isCreating = false);
+                      }
+                    },
+              child: isCreating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Crează'),
             ),
           ],
         ),
@@ -139,6 +159,9 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
   }
 
   Future<void> _deleteGroup(String groupId, String groupName) async {
+    if (_saving) return;
+    final uid = _userId;
+    if (uid == null) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -151,24 +174,27 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style:
-                TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Șterge'),
           ),
         ],
       ),
     );
-    if (confirm != true) return;
+    if (!mounted || confirm != true) return;
+    setState(() => _saving = true);
     try {
       await LocationGroupsService.deleteGroup(groupId);
       if (_activeVisibility == groupId) {
-        await _setVisibility('all');
+        await LocationGroupsService.setVisibility(uid, 'all');
+        if (mounted) setState(() => _activeVisibility = 'all');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Eroare: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -186,9 +212,10 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
               padding: EdgeInsets.only(right: 16),
               child: Center(
                 child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             ),
         ],
@@ -204,10 +231,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
             ),
       floatingActionButton: uid == null
           ? null
-          : _FriendsFab(
-              userId: uid,
-              onFriendsFetched: _showCreateGroupDialog,
-            ),
+          : _FriendsFab(userId: uid, onFriendsFetched: _showCreateGroupDialog),
     );
   }
 }
@@ -250,19 +274,22 @@ class _Body extends StatelessWidget {
             if (groups.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Text(
                   'Niciun grup creat. Apasă + pentru a crea unul.',
-                  style: TextStyle(
-                      color: Colors.grey.shade500, fontSize: 13),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                 ),
               ),
-            ...groups.map((g) => _GroupTile(
-                  group: g,
-                  selected: activeVisibility == g.id,
-                  onTap: () => onVisibilityChanged(g.id),
-                  onDelete: () => onDeleteGroup(g.id, g.name),
-                )),
+            ...groups.map(
+              (g) => _GroupTile(
+                group: g,
+                selected: activeVisibility == g.id,
+                onTap: () => onVisibilityChanged(g.id),
+                onDelete: () => onDeleteGroup(g.id, g.name),
+              ),
+            ),
           ],
         );
       },
@@ -313,16 +340,16 @@ class _VisibilityTile extends StatelessWidget {
         backgroundColor: selected
             ? const Color(0xFF4F46E5)
             : Colors.grey.shade200,
-        child: Icon(icon,
-            color: selected ? Colors.white : Colors.grey.shade500,
-            size: 20),
+        child: Icon(
+          icon,
+          color: selected ? Colors.white : Colors.grey.shade500,
+          size: 20,
+        ),
       ),
-      title: Text(label,
-          style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
       trailing: selected
-          ? const Icon(Icons.check_circle_rounded,
-              color: Color(0xFF4F46E5))
+          ? const Icon(Icons.check_circle_rounded, color: Color(0xFF4F46E5))
           : null,
       onTap: onTap,
     );
@@ -349,12 +376,16 @@ class _GroupTile extends StatelessWidget {
         backgroundColor: selected
             ? const Color(0xFF4F46E5)
             : Colors.grey.shade200,
-        child: Icon(Icons.group_rounded,
-            color: selected ? Colors.white : Colors.grey.shade500,
-            size: 20),
+        child: Icon(
+          Icons.group_rounded,
+          color: selected ? Colors.white : Colors.grey.shade500,
+          size: 20,
+        ),
       ),
-      title: Text(group.name,
-          style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        group.name,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
       subtitle: Text(
         '${group.memberIds.length} '
         '${group.memberIds.length == 1 ? 'prieten' : 'prieteni'}',
@@ -364,11 +395,13 @@ class _GroupTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (selected)
-            const Icon(Icons.check_circle_rounded,
-                color: Color(0xFF4F46E5)),
+            const Icon(Icons.check_circle_rounded, color: Color(0xFF4F46E5)),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded,
-                color: Colors.red, size: 20),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.red,
+              size: 20,
+            ),
             onPressed: onDelete,
           ),
         ],
@@ -378,26 +411,53 @@ class _GroupTile extends StatelessWidget {
   }
 }
 
-class _FriendsFab extends StatelessWidget {
+class _FriendsFab extends StatefulWidget {
   final String userId;
   final void Function(List<UserModel>) onFriendsFetched;
 
-  const _FriendsFab(
-      {required this.userId, required this.onFriendsFetched});
+  const _FriendsFab({required this.userId, required this.onFriendsFetched});
+
+  @override
+  State<_FriendsFab> createState() => _FriendsFabState();
+}
+
+class _FriendsFabState extends State<_FriendsFab> {
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton(
       backgroundColor: const Color(0xFF4F46E5),
       foregroundColor: Colors.white,
-      onPressed: () async {
-        final friends = await FriendsRepository()
-            .getFriends(userId)
-            .first;
-        if (!context.mounted) return;
-        onFriendsFetched(friends);
-      },
-      child: const Icon(Icons.add),
+      onPressed: _loading
+          ? null
+          : () async {
+              setState(() => _loading = true);
+              try {
+                final friends = await FriendsRepository()
+                    .getFriends(widget.userId)
+                    .first;
+                if (!context.mounted) return;
+                widget.onFriendsFetched(friends);
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+              } finally {
+                if (mounted) setState(() => _loading = false);
+              }
+            },
+      child: _loading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
+          : const Icon(Icons.add),
     );
   }
 }

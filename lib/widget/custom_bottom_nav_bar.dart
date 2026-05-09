@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final bool isCenterActionLoading;
 
   const CustomBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.isCenterActionLoading = false,
   });
 
   @override
@@ -46,12 +48,28 @@ class CustomBottomNavBar extends StatelessWidget {
                 children: [
                   // Stânga — 3 iteme, fiecare cu spațiu egal
                   Expanded(
-                    flex: 4, // Folosim flex pentru a oferi mai mult spațiu celor 3 iteme
+                    flex:
+                        4, // Folosim flex pentru a oferi mai mult spațiu celor 3 iteme
                     child: Row(
                       children: [
-                        Expanded(child: _buildNavItem(Icons.home_rounded, 'Home', 0)),
-                        Expanded(child: _buildNavItem(Icons.people_rounded, 'Prieteni', 1, hasBadge: true)),
-                        Expanded(child: _buildNavItem(Icons.chat_bubble_rounded, 'Mesaje', 2)),
+                        Expanded(
+                          child: _buildNavItem(Icons.home_rounded, 'Home', 0),
+                        ),
+                        Expanded(
+                          child: _buildNavItem(
+                            Icons.people_rounded,
+                            'Prieteni',
+                            1,
+                            hasBadge: true,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildNavItem(
+                            Icons.chat_bubble_rounded,
+                            'Mesaje',
+                            2,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -62,10 +80,25 @@ class CustomBottomNavBar extends StatelessWidget {
                     flex: 4, // Flex egal cu partea stângă pentru simetrie
                     child: Row(
                       children: [
-                        Expanded(child: _buildNavItem(Icons.map_rounded, 'Mapa', 4)),
-                        Expanded(child: _buildNavItem(Icons.person_rounded, 'Profil', 5, hasBadge: true)),
+                        Expanded(
+                          child: _buildNavItem(Icons.map_rounded, 'Mapa', 4),
+                        ),
+                        Expanded(
+                          child: _buildNavItem(
+                            Icons.person_rounded,
+                            'Profil',
+                            5,
+                            hasBadge: true,
+                          ),
+                        ),
                         // --- ADAUGAT NOU: Butonul de Swipe/Dating la Indexul 6 ---
-                        Expanded(child: _buildNavItem(Icons.local_fire_department_rounded, 'Match', 6)),
+                        Expanded(
+                          child: _buildNavItem(
+                            Icons.local_fire_department_rounded,
+                            'Match',
+                            6,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -76,7 +109,7 @@ class CustomBottomNavBar extends StatelessWidget {
           Positioned(
             top: 2,
             child: GestureDetector(
-              onTap: () => onTap(3),
+              onTap: isCenterActionLoading ? null : () => onTap(3),
               child: Container(
                 width: 66,
                 height: 66,
@@ -95,11 +128,19 @@ class CustomBottomNavBar extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.add_location_alt_rounded,
-                  color: Colors.white,
-                  size: 30,
-                ),
+                child: isCenterActionLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.add_location_alt_rounded,
+                        color: Colors.white,
+                        size: 30,
+                      ),
               ),
             ),
           ),
@@ -108,8 +149,12 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index,
-      {bool hasBadge = false}) {
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    int index, {
+    bool hasBadge = false,
+  }) {
     final isSelected = currentIndex == index;
     return GestureDetector(
       onTap: () => onTap(index),
@@ -161,8 +206,7 @@ class CustomBottomNavBar extends StatelessWidget {
               style: TextStyle(
                 color: isSelected ? Colors.white : Colors.white38,
                 fontSize: 9,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -171,4 +215,3 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 }
-

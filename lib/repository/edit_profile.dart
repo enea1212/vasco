@@ -46,6 +46,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       helpText: 'Selectează data nașterii',
     );
     if (picked != null) {
+      if (!mounted) return;
       setState(() => _selectedBirthDate = picked);
     }
   }
@@ -55,11 +56,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       source: ImageSource.gallery,
     );
     if (pickedFile != null) {
+      if (!mounted) return;
       setState(() => _imageFile = File(pickedFile.path));
     }
   }
 
   Future<void> _updateProfile() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final user = context.read<UserProvider>().user;
@@ -163,7 +166,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _updateProfile,
+                    onPressed: _isLoading ? null : _updateProfile,
                     child: const Text("Salvează"),
                   ),
                 ],

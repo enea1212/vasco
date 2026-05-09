@@ -87,6 +87,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       (_userData?['shared_countries'] as List?)?.length ?? 0;
 
   Future<void> _sendFriendRequest() async {
+    if (_friendActionLoading) return;
     setState(() => _friendActionLoading = true);
     try {
       await FirebaseFunctions.instance.httpsCallable('sendFriendRequest').call({
@@ -110,6 +111,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _cancelFriendRequest() async {
+    if (_friendActionLoading) return;
     setState(() => _friendActionLoading = true);
     try {
       await FirebaseFunctions.instance
@@ -128,6 +130,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _goToChat(String currentUserId) async {
+    if (_friendActionLoading || currentUserId.isEmpty) return;
     setState(() => _friendActionLoading = true);
     try {
       final convId = await MessagingRepository().getOrCreateConversation(
@@ -181,7 +184,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         ],
       ),
     );
-    if (confirm != true) return;
+    if (!mounted || confirm != true || _friendActionLoading) return;
 
     setState(() => _friendActionLoading = true);
     try {

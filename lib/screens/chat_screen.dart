@@ -103,6 +103,15 @@ class _ChatScreenState extends State<ChatScreen> {
         text,
         allParticipantIds: widget.groupParticipantIds,
       );
+    } catch (e) {
+      if (!mounted) return;
+      _controller.text = text;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: _controller.text.length),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Nu am putut trimite mesajul: $e')),
+      );
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -383,7 +392,7 @@ class _InputBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           GestureDetector(
-            onTap: onSend,
+            onTap: sending ? null : onSend,
             child: Container(
               width: 44,
               height: 44,

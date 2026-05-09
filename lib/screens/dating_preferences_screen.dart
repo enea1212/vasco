@@ -58,6 +58,7 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
     if (_myGender == null || _interestedIn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -110,56 +111,60 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isSaving
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionTitle('Eu sunt'),
-                  const SizedBox(height: 12),
-                  _genderRow(),
-                  const SizedBox(height: 28),
-                  _sectionTitle('Vreau să întâlnesc'),
-                  const SizedBox(height: 12),
-                  _interestedInRow(),
-                  const SizedBox(height: 28),
-                  _ageRangeSection(),
-                  const SizedBox(height: 28),
-                  _distanceSection(),
-                  const SizedBox(height: 28),
-                  _sectionTitle('De ce vreau să cunosc lume nouă'),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Poți selecta mai multe',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Eu sunt'),
+            const SizedBox(height: 12),
+            _genderRow(),
+            const SizedBox(height: 28),
+            _sectionTitle('Vreau să întâlnesc'),
+            const SizedBox(height: 12),
+            _interestedInRow(),
+            const SizedBox(height: 28),
+            _ageRangeSection(),
+            const SizedBox(height: 28),
+            _distanceSection(),
+            const SizedBox(height: 28),
+            _sectionTitle('De ce vreau să cunosc lume nouă'),
+            const SizedBox(height: 4),
+            const Text(
+              'Poți selecta mai multe',
+              style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+            ),
+            const SizedBox(height: 12),
+            _goalsGrid(),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 12),
-                  _goalsGrid(),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _save,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text(
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
                         'Salvează preferințele',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                  ),
-                ],
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 

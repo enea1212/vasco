@@ -38,6 +38,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool _isSharingLocation = false;
 
   late final List<Widget> _screens;
 
@@ -106,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _screens[_selectedIndex],
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
+        isCenterActionLoading: _isSharingLocation,
         onTap: (index) {
           if (index == 3) {
             _shareLocation(context);
@@ -124,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final currentUserId = context.read<UserProvider>().user?.id ?? '';
     final nameController = TextEditingController();
     final selected = <String>{};
+    var isCreating = false;
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -198,34 +201,47 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: isCreating ? null : () => Navigator.pop(ctx),
               child: const Text('Anulează'),
             ),
             FilledButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                Navigator.pop(ctx);
-                try {
-                  await MessagingRepository().createGroupConversation(
-                    currentUserId,
-                    selected.toList(),
-                    name,
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Grup creat cu succes!')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
-                  }
-                }
-              },
-              child: const Text('Crează'),
+              onPressed: isCreating
+                  ? null
+                  : () async {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+                      setInner(() => isCreating = true);
+                      try {
+                        await MessagingRepository().createGroupConversation(
+                          currentUserId,
+                          selected.toList(),
+                          name,
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Grup creat cu succes!'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+                        }
+                      } finally {
+                        if (ctx.mounted) setInner(() => isCreating = false);
+                      }
+                    },
+              child: isCreating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Crează'),
             ),
           ],
         ),
@@ -234,140 +250,146 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _shareLocation(BuildContext context) async {
+    if (_isSharingLocation) return;
     final userModel = context.read<UserProvider>().user;
     if (userModel == null) return;
 
-    // 1. Permisiune locație
-    if (!await geo.Geolocator.isLocationServiceEnabled()) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Activează locația în setări.')),
-        );
-      }
-      return;
-    }
-    geo.LocationPermission perm = await geo.Geolocator.checkPermission();
-    if (perm == geo.LocationPermission.denied) {
-      perm = await geo.Geolocator.requestPermission();
-      if (perm == geo.LocationPermission.denied) return;
-    }
-    if (perm == geo.LocationPermission.deniedForever) return;
-
-    geo.Position pos;
+    setState(() => _isSharingLocation = true);
     try {
-      pos = await geo.Geolocator.getCurrentPosition(
-        locationSettings: const geo.LocationSettings(
-          accuracy: geo.LocationAccuracy.high,
-        ),
-      );
-    } catch (_) {
-      return;
-    }
+      // 1. Permisiune locație
+      if (!await geo.Geolocator.isLocationServiceEnabled()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Activează locația în setări.')),
+          );
+        }
+        return;
+      }
+      geo.LocationPermission perm = await geo.Geolocator.checkPermission();
+      if (perm == geo.LocationPermission.denied) {
+        perm = await geo.Geolocator.requestPermission();
+        if (perm == geo.LocationPermission.denied) return;
+      }
+      if (perm == geo.LocationPermission.deniedForever) return;
 
-    // 2. Alege sursa foto
-    if (!context.mounted) return;
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(
-                  Icons.add_a_photo_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Adaugă o poză',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Alege sursa fotografiei',
-                style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _dialogOption(
-                      ctx,
-                      Icons.camera_alt_rounded,
-                      'Cameră',
-                      'camera',
+      geo.Position pos;
+      try {
+        pos = await geo.Geolocator.getCurrentPosition(
+          locationSettings: const geo.LocationSettings(
+            accuracy: geo.LocationAccuracy.high,
+          ),
+        );
+      } catch (_) {
+        return;
+      }
+
+      // 2. Alege sursa foto
+      if (!context.mounted) return;
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
                     ),
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _dialogOption(
-                      ctx,
-                      Icons.photo_library_rounded,
-                      'Galerie',
-                      'gallery',
+                  child: const Icon(
+                    Icons.add_a_photo_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Adaugă o poză',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Alege sursa fotografiei',
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dialogOption(
+                        ctx,
+                        Icons.camera_alt_rounded,
+                        'Cameră',
+                        'camera',
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _dialogOption(
+                        ctx,
+                        Icons.photo_library_rounded,
+                        'Galerie',
+                        'gallery',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    if (choice == null) return;
+      );
+      if (choice == null) return;
 
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
-      imageQuality: 70,
-    );
-    if (pickedFile == null) return;
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (pickedFile == null) return;
 
-    SpotifyTrack? spotifyTrack;
-    if (await SpotifyService.isConnected()) {
-      spotifyTrack = await SpotifyService.getCurrentTrack();
-    }
+      SpotifyTrack? spotifyTrack;
+      if (await SpotifyService.isConnected()) {
+        spotifyTrack = await SpotifyService.getCurrentTrack();
+      }
 
-    // 3. Detectează țara din assets (rapid, fără rețea)
-    final geoJsonString = await rootBundle.loadString('assets/custom.geo.json');
-    final geoJsonData = json.decode(geoJsonString) as Map<String, dynamic>;
-    final detected = MapboxHelper.detectCountry(
-      pos.latitude,
-      pos.longitude,
-      geoJsonData,
-    );
-    final countryName = detected?['value'];
+      // 3. Detectează țara din assets (rapid, fără rețea)
+      final geoJsonString = await rootBundle.loadString(
+        'assets/custom.geo.json',
+      );
+      final geoJsonData = json.decode(geoJsonString) as Map<String, dynamic>;
+      final detected = MapboxHelper.detectCountry(
+        pos.latitude,
+        pos.longitude,
+        geoJsonData,
+      );
+      final countryName = detected?['value'];
 
-    // 4. Reverse geocoding → "Oraș, Țară"
-    final locationName = await GeocodingService.reverseGeocode(
-      pos.latitude,
-      pos.longitude,
-    );
+      // 4. Reverse geocoding → "Oraș, Țară"
+      final locationName = await GeocodingService.reverseGeocode(
+        pos.latitude,
+        pos.longitude,
+      );
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Se încarcă poza...')));
-    }
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Se încarcă poza...')));
+      }
 
-    try {
       // 5. Upload foto cu locația completă
       await MyPhotoService.uploadPhoto(
         userId: userModel.id,
@@ -413,6 +435,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSharingLocation = false);
     }
   }
 

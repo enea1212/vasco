@@ -1110,25 +1110,46 @@ void _showEditDialog(
   PostRepository postRepo,
 ) {
   final controller = TextEditingController(text: currentDesc);
+  var isSaving = false;
   showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Editează'),
-      content: TextField(controller: controller),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Anulează'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await postRepo.editPost(postId, controller.text);
-            if (ctx.mounted) Navigator.pop(ctx);
-          },
-          child: const Text('Salvează'),
-        ),
-      ],
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Editează'),
+        content: TextField(controller: controller),
+        actions: [
+          TextButton(
+            onPressed: isSaving ? null : () => Navigator.pop(ctx),
+            child: const Text('Anulează'),
+          ),
+          ElevatedButton(
+            onPressed: isSaving
+                ? null
+                : () async {
+                    setDialogState(() => isSaving = true);
+                    try {
+                      await postRepo.editPost(postId, controller.text);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(
+                          ctx,
+                        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+                        setDialogState(() => isSaving = false);
+                      }
+                    }
+                  },
+            child: isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Salvează'),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -1139,28 +1160,52 @@ void _showDeleteConfirmation(
   String imageUrl,
   PostRepository postRepo,
 ) {
+  var isDeleting = false;
   showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Ștergi postarea?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Nu'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFEF4444),
-            foregroundColor: Colors.white,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Ștergi postarea?'),
+        actions: [
+          TextButton(
+            onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+            child: const Text('Nu'),
           ),
-          onPressed: () async {
-            await postRepo.deletePost(postId, imageUrl);
-            if (ctx.mounted) Navigator.pop(ctx);
-          },
-          child: const Text('Șterge'),
-        ),
-      ],
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: isDeleting
+                ? null
+                : () async {
+                    setDialogState(() => isDeleting = true);
+                    try {
+                      await postRepo.deletePost(postId, imageUrl);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(
+                          ctx,
+                        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+                        setDialogState(() => isDeleting = false);
+                      }
+                    }
+                  },
+            child: isDeleting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Șterge'),
+          ),
+        ],
+      ),
     ),
   );
 }

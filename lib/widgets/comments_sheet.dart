@@ -20,6 +20,7 @@ class CommentsSheet extends StatefulWidget {
 
 class _CommentsSheetState extends State<CommentsSheet> {
   final TextEditingController _controller = TextEditingController();
+  final Set<String> _deletingCommentIds = {};
   bool _isSending = false;
 
   @override
@@ -42,9 +43,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
       _controller.clear();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Eroare: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -52,6 +53,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
   }
 
   Future<void> _deleteComment(String commentId) async {
+    if (_deletingCommentIds.contains(commentId)) return;
+    setState(() => _deletingCommentIds.add(commentId));
     try {
       await FirebaseFunctions.instance.httpsCallable('deleteComment').call({
         'postId': widget.postId,
@@ -60,9 +63,13 @@ class _CommentsSheetState extends State<CommentsSheet> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Eroare la ștergere: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Eroare la ștergere: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deletingCommentIds.remove(commentId));
       }
     }
   }
@@ -137,8 +144,11 @@ class _CommentsSheetState extends State<CommentsSheet> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.chat_bubble_outline_rounded,
-                              size: 40, color: Color(0xFFD1D5DB)),
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 40,
+                            color: Color(0xFFD1D5DB),
+                          ),
                           SizedBox(height: 12),
                           Text(
                             'Fii primul care comentează!',
@@ -219,14 +229,27 @@ class _CommentsSheetState extends State<CommentsSheet> {
                             ),
                             if (isOwn)
                               GestureDetector(
-                                onTap: () => _deleteComment(commentId),
-                                child: const Padding(
-                                  padding: EdgeInsets.only(left: 8, top: 2),
-                                  child: Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 18,
-                                    color: Color(0xFFD1D5DB),
+                                onTap: _deletingCommentIds.contains(commentId)
+                                    ? null
+                                    : () => _deleteComment(commentId),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 8,
+                                    top: 2,
                                   ),
+                                  child: _deletingCommentIds.contains(commentId)
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.delete_outline_rounded,
+                                          size: 18,
+                                          color: Color(0xFFD1D5DB),
+                                        ),
                                 ),
                               ),
                           ],
@@ -241,7 +264,11 @@ class _CommentsSheetState extends State<CommentsSheet> {
             // Câmp input
             Container(
               padding: EdgeInsets.fromLTRB(
-                  16, 10, 16, MediaQuery.of(context).viewInsets.bottom + 12),
+                16,
+                10,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 12,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
@@ -262,7 +289,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           borderSide: BorderSide.none,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                       ),
                       maxLines: 4,
                       minLines: 1,
@@ -270,7 +299,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: _addComment,
+                    onTap: _isSending ? null : _addComment,
                     child: Container(
                       width: 42,
                       height: 42,
@@ -284,10 +313,15 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           ? const Padding(
                               padding: EdgeInsets.all(10),
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2),
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             )
-                          : const Icon(Icons.send_rounded,
-                              color: Colors.white, size: 20),
+                          : const Icon(
+                              Icons.send_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                     ),
                   ),
                 ],

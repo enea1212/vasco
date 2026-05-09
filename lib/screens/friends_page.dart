@@ -14,7 +14,8 @@ class FriendsPage extends StatefulWidget {
   State<FriendsPage> createState() => _FriendsPageState();
 }
 
-class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStateMixin {
+class _FriendsPageState extends State<FriendsPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -32,7 +33,9 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final currentUser = context.read<UserProvider>().user;
-    if (currentUser == null) return const Center(child: CircularProgressIndicator());
+    if (currentUser == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     final pendingCount = context.watch<FriendsProvider>().pendingCount;
 
@@ -55,9 +58,15 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
             ),
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
-            labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            labelStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
             tabs: [
-              const Tab(icon: Icon(Icons.search_rounded, size: 20), text: 'Caută'),
+              const Tab(
+                icon: Icon(Icons.search_rounded, size: 20),
+                text: 'Caută',
+              ),
               Tab(
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -67,7 +76,13 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
                       children: [
                         Icon(Icons.person_add_rounded, size: 20),
                         SizedBox(height: 2),
-                        Text('Cereri', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        Text(
+                          'Cereri',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                     if (pendingCount > 0)
@@ -76,14 +91,27 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
                         top: -4,
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
-                          child: Text('$pendingCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$pendingCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                   ],
                 ),
               ),
-              const Tab(icon: Icon(Icons.people_rounded, size: 20), text: 'Prieteni'),
+              const Tab(
+                icon: Icon(Icons.people_rounded, size: 20),
+                text: 'Prieteni',
+              ),
             ],
           ),
         ),
@@ -134,10 +162,16 @@ class _SearchTabState extends State<_SearchTab> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Caută după nume...',
-              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF9CA3AF)),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: Color(0xFF9CA3AF),
+              ),
               suffixIcon: _ctrl.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, color: Color(0xFF9CA3AF)),
+                      icon: const Icon(
+                        Icons.clear_rounded,
+                        color: Color(0xFF9CA3AF),
+                      ),
                       onPressed: () {
                         _ctrl.clear();
                         context.read<FriendsProvider>().clearSearch();
@@ -147,26 +181,45 @@ class _SearchTabState extends State<_SearchTab> {
                   : null,
               filled: true,
               fillColor: const Color(0xFFF3F4F6),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                borderSide: const BorderSide(
+                  color: Color(0xFF4F46E5),
+                  width: 1.5,
+                ),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
             ),
             onChanged: (val) {
               setState(() {});
-              context.read<FriendsProvider>().search(val, widget.currentUser.id);
+              context.read<FriendsProvider>().search(
+                val,
+                widget.currentUser.id,
+              );
             },
           ),
         ),
         if (provider.isSearching)
           const LinearProgressIndicator()
-        else if (provider.searchQuery.isNotEmpty && provider.searchResults.isEmpty)
+        else if (provider.searchQuery.isNotEmpty &&
+            provider.searchResults.isEmpty)
           const Padding(
             padding: EdgeInsets.all(32),
-            child: Text('Niciun utilizator găsit.', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'Niciun utilizator găsit.',
+              style: TextStyle(color: Colors.grey),
+            ),
           )
         else
           Expanded(
@@ -196,6 +249,7 @@ class _UserTile extends StatefulWidget {
 
 class _UserTileState extends State<_UserTile> {
   String _status = 'loading';
+  bool _actionLoading = false;
 
   @override
   void initState() {
@@ -204,7 +258,10 @@ class _UserTileState extends State<_UserTile> {
   }
 
   Future<void> _loadStatus() async {
-    final s = await context.read<FriendsProvider>().getStatus(widget.currentUserId, widget.user.id);
+    final s = await context.read<FriendsProvider>().getStatus(
+      widget.currentUserId,
+      widget.user.id,
+    );
     if (mounted) setState(() => _status = s);
   }
 
@@ -228,26 +285,49 @@ class _UserTileState extends State<_UserTile> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundImage: (widget.user.photoUrl?.isNotEmpty == true) ? NetworkImage(widget.user.photoUrl!) : null,
+              backgroundImage: (widget.user.photoUrl?.isNotEmpty == true)
+                  ? NetworkImage(widget.user.photoUrl!)
+                  : null,
               backgroundColor: const Color(0xFFF3F4F6),
-              child: (widget.user.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
+              child: (widget.user.photoUrl?.isNotEmpty == true)
+                  ? null
+                  : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.user.displayName ?? widget.user.email,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
+                  Text(
+                    widget.user.displayName ?? widget.user.email,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
                   if (widget.user.biography?.isNotEmpty == true)
-                    Text(widget.user.biography!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                    Text(
+                      widget.user.biography!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 13,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -260,36 +340,92 @@ class _UserTileState extends State<_UserTile> {
   }
 
   Widget _buildButton(BuildContext context) {
-    if (_status == 'loading') {
-      return const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2));
+    if (_status == 'loading' || _actionLoading) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
     }
 
     final provider = context.read<FriendsProvider>();
 
     switch (_status) {
       case 'friends':
-        return _actionBtn('Prieten', const Color(0xFFF3F4F6), const Color(0xFF374151), () async {
-          await provider.removeFriend(widget.currentUserId, widget.user.id);
-          if (mounted) setState(() => _status = 'none');
-        });
+        return _actionBtn(
+          'Prieten',
+          const Color(0xFFF3F4F6),
+          const Color(0xFF374151),
+          () {
+            _runFriendAction(
+              nextStatus: 'none',
+              action: () =>
+                  provider.removeFriend(widget.currentUserId, widget.user.id),
+            );
+          },
+        );
       case 'pending_sent':
-        return _actionBtn('Trimis', const Color(0xFFF3F4F6), const Color(0xFF6B7280), () async {
-          await provider.cancelRequest(widget.currentUserId, widget.user.id);
-          if (mounted) setState(() => _status = 'none');
-        });
+        return _actionBtn(
+          'Trimis',
+          const Color(0xFFF3F4F6),
+          const Color(0xFF6B7280),
+          () {
+            _runFriendAction(
+              nextStatus: 'none',
+              action: () =>
+                  provider.cancelRequest(widget.currentUserId, widget.user.id),
+            );
+          },
+        );
       case 'pending_received':
-        return _actionBtn('Acceptă', const Color(0xFF111827), Colors.white, () async {
-          final req = provider.incomingRequests.where((r) => r.fromUserId == widget.user.id).firstOrNull;
+        return _actionBtn('Acceptă', const Color(0xFF111827), Colors.white, () {
+          final req = provider.incomingRequests
+              .where((r) => r.fromUserId == widget.user.id)
+              .firstOrNull;
           if (req != null) {
-            await provider.acceptRequest(req.id, req.fromUserId, req.toUserId);
-            if (mounted) setState(() => _status = 'friends');
+            _runFriendAction(
+              nextStatus: 'friends',
+              action: () =>
+                  provider.acceptRequest(req.id, req.fromUserId, req.toUserId),
+            );
           }
         });
       default:
-        return _actionBtn('+ Adaugă', const Color(0xFF4F46E5), Colors.white, () async {
-          await provider.sendRequest(widget.currentUserId, widget.user.id);
-          if (mounted) setState(() => _status = 'pending_sent');
-        });
+        return _actionBtn(
+          '+ Adaugă',
+          const Color(0xFF4F46E5),
+          Colors.white,
+          () {
+            _runFriendAction(
+              nextStatus: 'pending_sent',
+              action: () =>
+                  provider.sendRequest(widget.currentUserId, widget.user.id),
+            );
+          },
+        );
+    }
+  }
+
+  Future<void> _runFriendAction({
+    required String nextStatus,
+    required Future<void> Function() action,
+  }) async {
+    if (_actionLoading) return;
+    final previousStatus = _status;
+    setState(() {
+      _status = nextStatus;
+      _actionLoading = true;
+    });
+    try {
+      await action();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = previousStatus);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Acțiunea a eșuat: $e')));
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
     }
   }
 
@@ -298,8 +434,18 @@ class _UserTileState extends State<_UserTile> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-        child: Text(label, style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: fg,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -321,14 +467,32 @@ class _RequestsTab extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72, height: 72,
-              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(20)),
-              child: const Icon(Icons.person_add_disabled_rounded, size: 36, color: Color(0xFF9CA3AF)),
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.person_add_disabled_rounded,
+                size: 36,
+                color: Color(0xFF9CA3AF),
+              ),
             ),
             const SizedBox(height: 16),
-            const Text('Nicio cerere', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Color(0xFF374151))),
+            const Text(
+              'Nicio cerere',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Color(0xFF374151),
+              ),
+            ),
             const SizedBox(height: 4),
-            const Text('Nu ai cereri de prietenie în așteptare.', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+            const Text(
+              'Nu ai cereri de prietenie în așteptare.',
+              style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+            ),
           ],
         ),
       );
@@ -343,12 +507,12 @@ class _RequestsTab extends StatelessWidget {
       displacement: 40,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-        itemCount: requests.length,
-        itemBuilder: (context, i) => _RequestTile(
-          request: requests[i],
-          currentUserId: currentUser.id,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
         ),
+        itemCount: requests.length,
+        itemBuilder: (context, i) =>
+            _RequestTile(request: requests[i], currentUserId: currentUser.id),
       ),
     );
   }
@@ -366,6 +530,7 @@ class _RequestTile extends StatefulWidget {
 class _RequestTileState extends State<_RequestTile> {
   UserModel? _sender;
   bool _loading = true;
+  bool _actionLoading = false;
 
   @override
   void initState() {
@@ -375,13 +540,20 @@ class _RequestTileState extends State<_RequestTile> {
 
   Future<void> _loadSender() async {
     final user = await FriendsRepository().fetchUser(widget.request.fromUserId);
-    if (mounted) setState(() { _sender = user; _loading = false; });
+    if (mounted) {
+      setState(() {
+        _sender = user;
+        _loading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.read<FriendsProvider>();
-    final name = _loading ? 'Se încarcă...' : (_sender?.displayName ?? _sender?.email ?? widget.request.fromUserId);
+    final name = _loading
+        ? 'Se încarcă...'
+        : (_sender?.displayName ?? _sender?.email ?? widget.request.fromUserId);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -389,59 +561,134 @@ class _RequestTileState extends State<_RequestTile> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundImage: (_sender?.photoUrl?.isNotEmpty == true) ? NetworkImage(_sender!.photoUrl!) : null,
+            backgroundImage: (_sender?.photoUrl?.isNotEmpty == true)
+                ? NetworkImage(_sender!.photoUrl!)
+                : null,
             backgroundColor: const Color(0xFFF3F4F6),
-            child: (_sender?.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
+            child: (_sender?.photoUrl?.isNotEmpty == true)
+                ? null
+                : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
-                const Text('Vrea să fii prieten', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const Text(
+                  'Vrea să fii prieten',
+                  style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  await provider.acceptRequest(widget.request.id, widget.request.fromUserId, widget.request.toUserId);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFF111827), borderRadius: BorderRadius.circular(10)),
-                  child: const Text('Acceptă', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+          _actionLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        await _runRequestAction(
+                          () => provider.acceptRequest(
+                            widget.request.id,
+                            widget.request.fromUserId,
+                            widget.request.toUserId,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111827),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Acceptă',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () async {
+                        await _runRequestAction(
+                          () => provider.declineRequest(
+                            widget.request.id,
+                            widget.request.fromUserId,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Refuză',
+                          style: TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () async {
-                  await provider.declineRequest(widget.request.id, widget.request.fromUserId);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text('Refuză', style: TextStyle(color: Color(0xFF6B7280), fontSize: 13, fontWeight: FontWeight.w500)),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
+  }
+
+  Future<void> _runRequestAction(Future<void> Function() action) async {
+    if (_actionLoading) return;
+    setState(() => _actionLoading = true);
+    try {
+      await action();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Acțiunea a eșuat: $e')));
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
   }
 }
 
@@ -461,14 +708,33 @@ class _FriendsTab extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72, height: 72,
-              decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(20)),
-              child: const Icon(Icons.people_outline_rounded, size: 36, color: Color(0xFF9CA3AF)),
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.people_outline_rounded,
+                size: 36,
+                color: Color(0xFF9CA3AF),
+              ),
             ),
             const SizedBox(height: 16),
-            const Text('Niciun prieten', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Color(0xFF374151))),
+            const Text(
+              'Niciun prieten',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Color(0xFF374151),
+              ),
+            ),
             const SizedBox(height: 4),
-            const Text('Caută utilizatori pentru a adăuga\nprieteni noi.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+            const Text(
+              'Caută utilizatori pentru a adăuga\nprieteni noi.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+            ),
           ],
         ),
       );
@@ -482,72 +748,114 @@ class _FriendsTab extends StatelessWidget {
       color: const Color(0xFF4F46E5),
       displacement: 40,
       child: ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-      itemCount: friends.length,
-      itemBuilder: (context, i) {
-        final friend = friends[i];
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UserProfileScreen(
-                userId: friend.id,
-                initialDisplayName: friend.displayName,
-                initialPhotoUrl: friend.photoUrl,
-              ),
-            ),
-          ),
-          child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: (friend.photoUrl?.isNotEmpty == true) ? NetworkImage(friend.photoUrl!) : null,
-                backgroundColor: const Color(0xFFF3F4F6),
-                child: (friend.photoUrl?.isNotEmpty == true) ? null : const Icon(Icons.person_rounded, color: Color(0xFF9CA3AF)),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(friend.displayName ?? friend.email,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF111827))),
-                    if (friend.biography?.isNotEmpty == true)
-                      Text(friend.biography!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
-                  ],
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
+        itemCount: friends.length,
+        itemBuilder: (context, i) {
+          final friend = friends[i];
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => UserProfileScreen(
+                  userId: friend.id,
+                  initialDisplayName: friend.displayName,
+                  initialPhotoUrl: friend.photoUrl,
                 ),
               ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: Color(0xFFD1D5DB)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                onSelected: (val) async {
-                  if (val == 'remove') {
-                    final confirm = await _confirmRemove(context, friend.displayName ?? friend.email);
-                    if (confirm && context.mounted) {
-                      await context.read<FriendsProvider>().removeFriend(currentUser.id, friend.id);
-                    }
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'remove', child: Text('Elimină prieten')),
+            ),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-        );
-      },
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundImage: (friend.photoUrl?.isNotEmpty == true)
+                        ? NetworkImage(friend.photoUrl!)
+                        : null,
+                    backgroundColor: const Color(0xFFF3F4F6),
+                    child: (friend.photoUrl?.isNotEmpty == true)
+                        ? null
+                        : const Icon(
+                            Icons.person_rounded,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          friend.displayName ?? friend.email,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        if (friend.biography?.isNotEmpty == true)
+                          Text(
+                            friend.biography!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Color(0xFFD1D5DB),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    onSelected: (val) async {
+                      if (val == 'remove') {
+                        final confirm = await _confirmRemove(
+                          context,
+                          friend.displayName ?? friend.email,
+                        );
+                        if (confirm && context.mounted) {
+                          await context.read<FriendsProvider>().removeFriend(
+                            currentUser.id,
+                            friend.id,
+                          );
+                        }
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'remove',
+                        child: Text('Elimină prieten'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -557,9 +865,14 @@ class _FriendsTab extends StatelessWidget {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Elimini prieten?'),
-            content: Text('Ești sigur că vrei să elimini pe $name din lista de prieteni?'),
+            content: Text(
+              'Ești sigur că vrei să elimini pe $name din lista de prieteni?',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Nu')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Nu'),
+              ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(ctx, true),
