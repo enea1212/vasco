@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:vasco/utils/scroll_utils.dart';
@@ -11,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/helpers/mapbox_helper.dart';
 import 'package:vasco/models/user_model.dart';
+import 'package:vasco/providers/feed_cache_provider.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/repository/messaging_repository.dart';
@@ -42,13 +45,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const _FeedPage(),            // 0 - Home
-      const FriendsPage(),          // 1 - Friends
-      const ConversationsScreen(),  // 2 - Mesaje
-      Container(),                  // 3 - Share (buton central)
-      MapPage(),                    // 4 - Map
-      const ProfileScreen(),        // 5 - Profile
-      SwipeScreen(),                // Index 6
+      const _FeedPage(), // 0 - Home
+      const FriendsPage(), // 1 - Friends
+      const ConversationsScreen(), // 2 - Mesaje
+      Container(), // 3 - Share (buton central)
+      MapPage(), // 4 - Map
+      const ProfileScreen(), // 5 - Profile
+      SwipeScreen(), // Index 6
     ];
   }
 
@@ -56,41 +59,50 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      appBar: (_selectedIndex == 5 || _selectedIndex == 0) ? null : AppBar(
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.travel_explore_rounded, color: Color(0xFF4F46E5), size: 22),
-            SizedBox(width: 6),
-            Text(
-              'Vasco',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-                color: Color(0xFF111827),
+      appBar: (_selectedIndex == 5 || _selectedIndex == 0)
+          ? null
+          : AppBar(
+              title: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.travel_explore_rounded,
+                    color: Color(0xFF4F46E5),
+                    size: 22,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Vasco',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ],
               ),
+              centerTitle: true,
+              actions: [
+                if (_selectedIndex == 2)
+                  Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.group_add_rounded,
+                        color: Color(0xFF4F46E5),
+                      ),
+                      onPressed: () {
+                        final friends = context.read<FriendsProvider>().friends;
+                        _showCreateGroupDialog(context, friends);
+                      },
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          if (_selectedIndex == 2)
-            Container(
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.group_add_rounded, color: Color(0xFF4F46E5)),
-                onPressed: () {
-                  final friends = context.read<FriendsProvider>().friends;
-                  _showCreateGroupDialog(context, friends);
-                },
-              ),
-            ),
-        ],
-      ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
@@ -105,7 +117,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _showCreateGroupDialog(BuildContext context, List<UserModel> friends) async {
+  Future<void> _showCreateGroupDialog(
+    BuildContext context,
+    List<UserModel> friends,
+  ) async {
     final currentUserId = context.read<UserProvider>().user?.id ?? '';
     final nameController = TextEditingController();
     final selected = <String>{};
@@ -129,14 +144,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 12),
-                const Text('Adaugă prieteni:',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text(
+                  'Adaugă prieteni:',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
                 const SizedBox(height: 6),
                 if (friends.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('Nu ai prieteni de adăugat.',
-                        style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13)),
+                    child: Text(
+                      'Nu ai prieteni de adăugat.',
+                      style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                    ),
                   )
                 else
                   ConstrainedBox(
@@ -149,8 +168,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         final isSelected = selected.contains(f.id);
                         return CheckboxListTile(
                           dense: true,
-                          title: Text(f.displayName ?? f.email,
-                              style: const TextStyle(fontSize: 14)),
+                          title: Text(
+                            f.displayName ?? f.email,
+                            style: const TextStyle(fontSize: 14),
+                          ),
                           value: isSelected,
                           onChanged: (_) => setInner(() {
                             if (isSelected) {
@@ -161,8 +182,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           }),
                           secondary: CircleAvatar(
                             radius: 16,
-                            backgroundImage: f.photoUrl != null ? NetworkImage(f.photoUrl!) : null,
-                            child: f.photoUrl == null ? const Icon(Icons.person, size: 16) : null,
+                            backgroundImage: f.photoUrl != null
+                                ? NetworkImage(f.photoUrl!)
+                                : null,
+                            child: f.photoUrl == null
+                                ? const Icon(Icons.person, size: 16)
+                                : null,
                           ),
                         );
                       },
@@ -182,7 +207,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (name.isEmpty) return;
                 Navigator.pop(ctx);
                 try {
-                  await MessagingRepository().createGroupConversation(currentUserId, selected.toList(), name);
+                  await MessagingRepository().createGroupConversation(
+                    currentUserId,
+                    selected.toList(),
+                    name,
+                  );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Grup creat cu succes!')),
@@ -190,9 +219,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Eroare: $e')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
                   }
                 }
               },
@@ -227,8 +256,10 @@ class _HomeScreenState extends State<HomeScreen> {
     geo.Position pos;
     try {
       pos = await geo.Geolocator.getCurrentPosition(
-          locationSettings: const geo.LocationSettings(
-              accuracy: geo.LocationAccuracy.high));
+        locationSettings: const geo.LocationSettings(
+          accuracy: geo.LocationAccuracy.high,
+        ),
+      );
     } catch (_) {
       return;
     }
@@ -253,12 +284,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 28),
+                child: const Icon(
+                  Icons.add_a_photo_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Adaugă o poză',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -268,9 +307,23 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(child: _dialogOption(ctx, Icons.camera_alt_rounded, 'Cameră', 'camera')),
+                  Expanded(
+                    child: _dialogOption(
+                      ctx,
+                      Icons.camera_alt_rounded,
+                      'Cameră',
+                      'camera',
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _dialogOption(ctx, Icons.photo_library_rounded, 'Galerie', 'gallery')),
+                  Expanded(
+                    child: _dialogOption(
+                      ctx,
+                      Icons.photo_library_rounded,
+                      'Galerie',
+                      'gallery',
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -295,16 +348,23 @@ class _HomeScreenState extends State<HomeScreen> {
     // 3. Detectează țara din assets (rapid, fără rețea)
     final geoJsonString = await rootBundle.loadString('assets/custom.geo.json');
     final geoJsonData = json.decode(geoJsonString) as Map<String, dynamic>;
-    final detected = MapboxHelper.detectCountry(pos.latitude, pos.longitude, geoJsonData);
+    final detected = MapboxHelper.detectCountry(
+      pos.latitude,
+      pos.longitude,
+      geoJsonData,
+    );
     final countryName = detected?['value'];
 
     // 4. Reverse geocoding → "Oraș, Țară"
-    final locationName = await GeocodingService.reverseGeocode(pos.latitude, pos.longitude);
+    final locationName = await GeocodingService.reverseGeocode(
+      pos.latitude,
+      pos.longitude,
+    );
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Se încarcă poza...')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Se încarcă poza...')));
     }
 
     try {
@@ -328,18 +388,19 @@ class _HomeScreenState extends State<HomeScreen> {
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userModel.id)
-            .set(
-              {'shared_countries': FieldValue.arrayUnion([detected])},
-              SetOptions(merge: true),
-            );
+            .set({
+              'shared_countries': FieldValue.arrayUnion([detected]),
+            }, SetOptions(merge: true));
       }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(detected != null
-                ? 'Locație înregistrată în ${detected['value']}!'
-                : 'Locație înregistrată!'),
+            content: Text(
+              detected != null
+                  ? 'Locație înregistrată în ${detected['value']}!'
+                  : 'Locație înregistrată!',
+            ),
           ),
         );
       }
@@ -355,7 +416,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _dialogOption(BuildContext ctx, IconData icon, String label, String value) {
+  Widget _dialogOption(
+    BuildContext ctx,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return GestureDetector(
       onTap: () => Navigator.pop(ctx, value),
       child: Container(
@@ -368,48 +434,38 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(icon, color: const Color(0xFF4F46E5), size: 28),
             const SizedBox(height: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111827),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
 }
 
 // ─── Feed Instagram-style ─────────────────────────────────────────────────────
 
-class _FeedPage extends StatefulWidget {
+class _FeedPage extends StatelessWidget {
   const _FeedPage();
 
-  @override
-  State<_FeedPage> createState() => _FeedPageState();
-}
-
-class _FeedPageState extends State<_FeedPage> {
-  late Stream<QuerySnapshot> _feedStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _feedStream = _buildStream();
-  }
-
-  Stream<QuerySnapshot> _buildStream() =>
-      FirebaseFirestore.instance
-          .collection('location_photos')
-          .orderBy('createdAt', descending: true)
-          .limit(40)
-          .snapshots();
-
-  Future<void> _onRefresh() async {
-    setState(() => _feedStream = _buildStream());
+  Future<void> _refreshFeed(BuildContext context) {
+    final refresh = context.read<FeedCacheProvider>().refresh();
+    return Future.any([
+      refresh,
+      Future<void>.delayed(const Duration(seconds: 5)),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = context.watch<UserProvider>().user;
     final friends = context.watch<FriendsProvider>().friends;
+    final feed = context.watch<FeedCacheProvider>();
 
     return Column(
       children: [
@@ -440,13 +496,19 @@ class _FeedPageState extends State<_FeedPage> {
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.favorite_border_rounded,
-                              color: Color(0xFF111827), size: 26),
+                          icon: const Icon(
+                            Icons.favorite_border_rounded,
+                            color: Color(0xFF111827),
+                            size: 26,
+                          ),
                           onPressed: () {},
                         ),
                         IconButton(
-                          icon: const Icon(Icons.send_outlined,
-                              color: Color(0xFF111827), size: 24),
+                          icon: const Icon(
+                            Icons.send_outlined,
+                            color: Color(0xFF111827),
+                            size: 24,
+                          ),
                           onPressed: () {},
                         ),
                         const SizedBox(width: 4),
@@ -462,10 +524,10 @@ class _FeedPageState extends State<_FeedPage> {
 
         // ── Feed scrollabil cu pull-to-refresh ────────────────────────────
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _feedStream,
-            builder: (context, snapshot) {
-              final docs = snapshot.data?.docs ?? [];
+          child: Builder(
+            builder: (context) {
+              final posts = feed.posts;
+              final isInitialLoading = feed.isInitialLoading;
 
               return ScrollConfiguration(
                 behavior: const NoGlowScrollBehavior(),
@@ -475,20 +537,23 @@ class _FeedPageState extends State<_FeedPage> {
                   ),
                   slivers: [
                     CupertinoSliverRefreshControl(
-                      onRefresh: _onRefresh,
+                      onRefresh: () => _refreshFeed(context),
                       refreshTriggerPullDistance: 36,
                       refreshIndicatorExtent: 30,
                       builder: buildPullRefreshIndicator,
                     ),
                     SliverToBoxAdapter(
-                      child: _StoriesRow(currentUser: currentUser, friends: friends),
+                      child: _StoriesRow(
+                        currentUser: currentUser,
+                        friends: friends,
+                      ),
                     ),
 
                     const SliverToBoxAdapter(
                       child: Divider(height: 0.5, thickness: 0.5),
                     ),
 
-                    if (snapshot.connectionState == ConnectionState.waiting && docs.isEmpty)
+                    if (isInitialLoading)
                       const SliverFillRemaining(
                         child: Center(
                           child: CircularProgressIndicator(
@@ -497,48 +562,69 @@ class _FeedPageState extends State<_FeedPage> {
                           ),
                         ),
                       )
-                    else if (docs.isEmpty)
+                    else if (posts.isEmpty)
                       SliverFillRemaining(
                         child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 72, height: 72,
+                                width: 72,
+                                height: 72,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Icon(Icons.photo_camera_outlined,
-                                    size: 36, color: Color(0xFF9CA3AF)),
+                                child: const Icon(
+                                  Icons.photo_camera_outlined,
+                                  size: 36,
+                                  color: Color(0xFF9CA3AF),
+                                ),
                               ),
                               const SizedBox(height: 16),
-                              const Text('Nicio postare încă',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                      color: Color(0xFF374151))),
+                              const Text(
+                                'Nicio postare încă',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                  color: Color(0xFF374151),
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               const Text(
                                 'Apasă butonul central pentru a posta.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                                style: TextStyle(
+                                  color: Color(0xFF9CA3AF),
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
                         ),
                       )
-                    else
-                      SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (ctx, i) {
-                            final doc = docs[i];
-                            final data = doc.data() as Map<String, dynamic>;
-                            return _PostCard(docId: doc.id, data: data);
-                          },
-                          childCount: docs.length,
+                    else ...[
+                      if (feed.error != null)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                            child: Text(
+                              'Se afișează cache-ul local momentan.',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         ),
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate((ctx, i) {
+                          final post = posts[i];
+                          final docId = post['id'] as String? ?? '';
+                          return _PostCard(docId: docId, data: post);
+                        }, childCount: posts.length),
                       ),
+                    ],
 
                     const SliverToBoxAdapter(child: SizedBox(height: 120)),
                   ],
@@ -573,17 +659,11 @@ class _StoriesRow extends StatelessWidget {
           if (i == 0) {
             // Story-ul utilizatorului curent
             final photo = currentUser?.photoUrl as String?;
-            return _StoryItem(
-              name: 'Tu',
-              photoUrl: photo,
-              isMe: true,
-            );
+            return _StoryItem(name: 'Tu', photoUrl: photo, isMe: true);
           }
           final friend = friends[i - 1];
           return _StoryItem(
-            name: (friend.displayName as String? ?? 'Prieten')
-                .split(' ')
-                .first,
+            name: (friend.displayName as String? ?? 'Prieten').split(' ').first,
             photoUrl: friend.photoUrl as String?,
           );
         },
@@ -614,9 +694,13 @@ class _StoryItem extends StatelessWidget {
                 padding: const EdgeInsets.all(2),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFF09433), Color(0xFFE6683C),
-                             Color(0xFFDC2743), Color(0xFFCC2366),
-                             Color(0xFFBC1888)],
+                    colors: [
+                      Color(0xFFF09433),
+                      Color(0xFFE6683C),
+                      Color(0xFFDC2743),
+                      Color(0xFFCC2366),
+                      Color(0xFFBC1888),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -630,8 +714,9 @@ class _StoryItem extends StatelessWidget {
                   padding: const EdgeInsets.all(2),
                   child: CircleAvatar(
                     radius: 26,
-                    backgroundImage:
-                        photoUrl != null ? NetworkImage(photoUrl!) : null,
+                    backgroundImage: photoUrl != null
+                        ? NetworkImage(photoUrl!)
+                        : null,
                     backgroundColor: const Color(0xFFF3F4F6),
                     child: photoUrl == null
                         ? Text(
@@ -657,8 +742,11 @@ class _StoryItem extends StatelessWidget {
                       color: Color(0xFF4F46E5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add_rounded,
-                        color: Colors.white, size: 14),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                   ),
                 ),
             ],
@@ -729,9 +817,10 @@ class _PostCardState extends State<_PostCard> {
     if (_isLiking) return;
     setState(() => _isLiking = true);
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('toggleLike')
-          .call({'postId': widget.docId, 'collection': 'location_photos'});
+      await FirebaseFunctions.instance.httpsCallable('toggleLike').call({
+        'postId': widget.docId,
+        'collection': 'location_photos',
+      });
     } catch (_) {
     } finally {
       if (mounted) setState(() => _isLiking = false);
@@ -807,9 +896,10 @@ class _PostCardState extends State<_PostCard> {
                   child: Text(
                     'Aprecieri',
                     style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF111827)),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111827),
+                    ),
                   ),
                 ),
               ),
@@ -819,13 +909,16 @@ class _PostCardState extends State<_PostCard> {
                   builder: (_, snap) {
                     if (snap.connectionState == ConnectionState.waiting) {
                       return const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2));
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      );
                     }
                     final likers = snap.data ?? [];
                     if (likers.isEmpty) {
                       return const Center(
-                        child: Text('Nicio apreciere încă.',
-                            style: TextStyle(color: Color(0xFF9CA3AF))),
+                        child: Text(
+                          'Nicio apreciere încă.',
+                          style: TextStyle(color: Color(0xFF9CA3AF)),
+                        ),
                       );
                     }
                     return ListView.separated(
@@ -858,7 +951,9 @@ class _PostCardState extends State<_PostCard> {
                               : null,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 10),
+                              horizontal: 4,
+                              vertical: 10,
+                            ),
                             child: Row(
                               children: [
                                 CircleAvatar(
@@ -868,8 +963,11 @@ class _PostCardState extends State<_PostCard> {
                                       : null,
                                   backgroundColor: const Color(0xFFF3F4F6),
                                   child: photo == null
-                                      ? const Icon(Icons.person_rounded,
-                                          color: Color(0xFF9CA3AF), size: 20)
+                                      ? const Icon(
+                                          Icons.person_rounded,
+                                          color: Color(0xFF9CA3AF),
+                                          size: 20,
+                                        )
                                       : null,
                                 ),
                                 const SizedBox(width: 14),
@@ -883,8 +981,11 @@ class _PostCardState extends State<_PostCard> {
                                     ),
                                   ),
                                 ),
-                                const Icon(Icons.chevron_right_rounded,
-                                    color: Color(0xFFD1D5DB), size: 20),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Color(0xFFD1D5DB),
+                                  size: 20,
+                                ),
                               ],
                             ),
                           ),
@@ -963,8 +1064,11 @@ class _PostCardState extends State<_PostCard> {
                         padding: const EdgeInsets.all(1.5),
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFFF09433), Color(0xFFDC2743),
-                                     Color(0xFFBC1888)],
+                            colors: [
+                              Color(0xFFF09433),
+                              Color(0xFFDC2743),
+                              Color(0xFFBC1888),
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -983,8 +1087,11 @@ class _PostCardState extends State<_PostCard> {
                                 : null,
                             backgroundColor: const Color(0xFFF3F4F6),
                             child: userPhotoUrl.isEmpty
-                                ? const Icon(Icons.person_rounded,
-                                    color: Color(0xFF9CA3AF), size: 16)
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    color: Color(0xFF9CA3AF),
+                                    size: 16,
+                                  )
                                 : null,
                           ),
                         ),
@@ -1019,8 +1126,11 @@ class _PostCardState extends State<_PostCard> {
                   ),
                 ),
               ),
-              const Icon(Icons.more_horiz_rounded,
-                  color: Color(0xFF111827), size: 22),
+              const Icon(
+                Icons.more_horiz_rounded,
+                color: Color(0xFF111827),
+                size: 22,
+              ),
             ],
           ),
         ),
@@ -1029,12 +1139,7 @@ class _PostCardState extends State<_PostCard> {
         Stack(
           children: [
             imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, e, stack) => _placeholder(),
-                  )
+                ? _CachedBlurImage(imageUrl: imageUrl)
                 : _placeholder(),
             if (spotifySong != null)
               Positioned(
@@ -1060,112 +1165,103 @@ class _PostCardState extends State<_PostCard> {
               .snapshots(),
           builder: (_, likeSnap) {
             final isLiked = likeSnap.data?.exists ?? false;
-            return StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('location_photos')
-                  .doc(widget.docId)
-                  .snapshots(),
-              builder: (_, postSnap) {
-                final pd =
-                    postSnap.data?.data() as Map<String, dynamic>?;
-                final likesCount = pd?['likesCount'] ?? 0;
-                final commentsCount = pd?['commentsCount'] ?? 0;
+            final likesCount = (d['likesCount'] as num?)?.toInt() ?? 0;
+            final commentsCount = (d['commentsCount'] as num?)?.toInt() ?? 0;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Butoane acțiuni
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () => _toggleLike(currentUserId),
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 180),
-                              child: Icon(
-                                isLiked
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                key: ValueKey(isLiked),
-                                size: 28,
-                                color: isLiked
-                                    ? const Color(0xFFEF4444)
-                                    : const Color(0xFF111827),
-                              ),
-                            ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Butoane acțiuni
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _toggleLike(currentUserId),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: Icon(
+                            isLiked
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            key: ValueKey(isLiked),
+                            size: 28,
+                            color: isLiked
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF111827),
                           ),
-                          const SizedBox(width: 16),
-                          GestureDetector(
-                            onTap: () =>
-                                _openComments(context, currentUserId),
-                            child: const Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 26,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          const Icon(Icons.send_outlined,
-                              size: 25, color: Color(0xFF111827)),
-                          const Spacer(),
-                          const Icon(Icons.bookmark_border_rounded,
-                              size: 26, color: Color(0xFF111827)),
-                        ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => _openComments(context, currentUserId),
+                        child: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 26,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Icon(
+                        Icons.send_outlined,
+                        size: 25,
+                        color: Color(0xFF111827),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.bookmark_border_rounded,
+                        size: 26,
+                        color: Color(0xFF111827),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Număr aprecieri (tap → cine a dat like)
+                if (likesCount > 0)
+                  GestureDetector(
+                    onTap: () => _showLikers(context),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                      child: Text(
+                        '$likesCount aprecieri',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Color(0xFF111827),
+                        ),
                       ),
                     ),
+                  ),
 
-                    // Număr aprecieri (tap → cine a dat like)
-                    if (likesCount > 0)
-                      GestureDetector(
-                        onTap: () => _showLikers(context),
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                          child: Text(
-                            '$likesCount aprecieri',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // Comentarii count
-                    if (commentsCount > 0)
-                      GestureDetector(
-                        onTap: () =>
-                            _openComments(context, currentUserId),
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(12, 3, 12, 0),
-                          child: Text(
-                            'Vizualizați toate cele $commentsCount comentarii',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF9CA3AF),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // Timestamp
-                    Padding(
-                      padding:
-                          const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                // Comentarii count
+                if (commentsCount > 0)
+                  GestureDetector(
+                    onTap: () => _openComments(context, currentUserId),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 3, 12, 0),
                       child: Text(
-                        timeLabel,
+                        'Vizualizați toate cele $commentsCount comentarii',
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 13,
                           color: Color(0xFF9CA3AF),
                         ),
                       ),
                     ),
-                  ],
-                );
-              },
+                  ),
+
+                // Timestamp
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                  child: Text(
+                    timeLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -1176,11 +1272,83 @@ class _PostCardState extends State<_PostCard> {
   }
 
   Widget _placeholder() => Container(
-      height: 300,
-      color: const Color(0xFFF3F4F6),
-      child: const Center(
-          child: Icon(Icons.image_rounded,
-              size: 52, color: Color(0xFF9CA3AF))));
+    height: 360,
+    color: const Color(0xFFF3F4F6),
+    child: const Center(
+      child: Icon(Icons.image_rounded, size: 52, color: Color(0xFF9CA3AF)),
+    ),
+  );
+}
+
+class _CachedBlurImage extends StatelessWidget {
+  final String imageUrl;
+
+  const _CachedBlurImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        fadeInDuration: const Duration(milliseconds: 260),
+        fadeOutDuration: const Duration(milliseconds: 120),
+        placeholderFadeInDuration: const Duration(milliseconds: 120),
+        imageBuilder: (context, imageProvider) => AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          child: Image(
+            key: ValueKey(imageUrl),
+            image: imageProvider,
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+        placeholder: (context, url) => Stack(
+          fit: StackFit.expand,
+          children: [
+            ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFFE5E7EB),
+                      Color(0xFFF3F4F6),
+                      Color(0xFFD1D5DB),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            ),
+            const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: const Color(0xFFF3F4F6),
+          child: const Center(
+            child: Icon(
+              Icons.image_not_supported_rounded,
+              size: 42,
+              color: Color(0xFF9CA3AF),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Music badge (BeReal-style Spotify) ──────────────────────────────────────
@@ -1210,12 +1378,13 @@ class _MusicBadge extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: albumArtUrl.isNotEmpty
-                ? Image.network(
-                    albumArtUrl,
+                ? CachedNetworkImage(
+                    imageUrl: albumArtUrl,
                     width: 36,
                     height: 36,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _albumPlaceholder(),
+                    placeholder: (_, _) => _albumPlaceholder(),
+                    errorWidget: (_, _, _) => _albumPlaceholder(),
                   )
                 : _albumPlaceholder(),
           ),
@@ -1251,19 +1420,24 @@ class _MusicBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.music_note_rounded,
-              color: Color(0xFF1DB954), size: 14),
+          const Icon(
+            Icons.music_note_rounded,
+            color: Color(0xFF1DB954),
+            size: 14,
+          ),
         ],
       ),
     );
   }
 
   Widget _albumPlaceholder() => Container(
-        width: 36,
-        height: 36,
-        color: const Color(0xFF374151),
-        child: const Icon(Icons.music_note_rounded,
-            color: Color(0xFF9CA3AF), size: 18),
-      );
+    width: 36,
+    height: 36,
+    color: const Color(0xFF374151),
+    child: const Icon(
+      Icons.music_note_rounded,
+      color: Color(0xFF9CA3AF),
+      size: 18,
+    ),
+  );
 }
-

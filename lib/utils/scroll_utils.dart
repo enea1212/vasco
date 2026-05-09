@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 /// Permite overscroll maxim de [maxOverscroll] px — necesar pentru
 /// CupertinoSliverRefreshControl, dar fără tragere infinită.
 class CappedBouncingScrollPhysics extends BouncingScrollPhysics {
-  const CappedBouncingScrollPhysics({
-    super.parent,
-    this.maxOverscroll = 48.0,
-  });
+  const CappedBouncingScrollPhysics({super.parent, this.maxOverscroll = 48.0});
 
   final double maxOverscroll;
 
@@ -21,9 +18,19 @@ class CappedBouncingScrollPhysics extends BouncingScrollPhysics {
 
   @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
-    // Limitează overscroll-ul la top la maxOverscroll px
+    final delta = value - position.pixels;
+    if (delta == 0) return 0;
+
+    // Limitează overscroll-ul, dar nu returna niciodată o corecție mai mare
+    // decât delta-ul curent. Flutter cere ca physics-ul să reducă mișcarea,
+    // nu să o inverseze.
     if (value < position.minScrollExtent - maxOverscroll) {
-      return value - (position.minScrollExtent - maxOverscroll);
+      final overscroll = value - (position.minScrollExtent - maxOverscroll);
+      return delta < 0 ? overscroll.clamp(delta, 0.0) : 0.0;
+    }
+    if (value > position.maxScrollExtent + maxOverscroll) {
+      final overscroll = value - (position.maxScrollExtent + maxOverscroll);
+      return delta > 0 ? overscroll.clamp(0.0, delta) : 0.0;
     }
     return super.applyBoundaryConditions(position, value);
   }
@@ -35,7 +42,10 @@ class NoGlowScrollBehavior extends ScrollBehavior {
 
   @override
   Widget buildOverscrollIndicator(
-      BuildContext context, Widget child, ScrollableDetails details) {
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return child;
   }
 }

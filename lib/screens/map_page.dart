@@ -17,6 +17,7 @@ import 'package:geolocator/geolocator.dart' as geo;
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:vasco/models/user_model.dart';
 import '../providers/user_provider.dart';
 
 class MapPage extends StatefulWidget {
@@ -53,6 +54,7 @@ class _MapPageState extends State<MapPage> {
   StreamSubscription<DocumentSnapshot>? _userDocSub;
   String _locationVisibility = 'all';
   String? _currentUserIdForLocationCleanup;
+  UserModel? _currentUser;
 
   final Completer<void> _mapReadyCompleter = Completer<void>();
 
@@ -65,7 +67,8 @@ class _MapPageState extends State<MapPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _currentUserIdForLocationCleanup ??= context.read<UserProvider>().user?.id;
+    _currentUser = Provider.of<UserProvider>(context).user;
+    _currentUserIdForLocationCleanup ??= _currentUser?.id;
   }
 
   @override
@@ -103,7 +106,9 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _initLocationAndImage() async {
     await _maybeShowFirstLaunchDialog();
+    if (!mounted) return;
     final pos = await _getLocationWithPermission();
+    if (!mounted) return;
     if (pos == null) return;
     _currentPosition = pos;
     _cachedProfileImage = await _buildProfileImage();
@@ -155,7 +160,7 @@ class _MapPageState extends State<MapPage> {
 
   void _publishMyLocation(geo.Position pos) {
     if (_locationVisibility == 'none') return;
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = _currentUser;
     if (user == null) return;
     FirebaseFirestore.instance.collection('user_locations').doc(user.id).set({
       'latitude': pos.latitude,
@@ -210,7 +215,7 @@ class _MapPageState extends State<MapPage> {
 
   void _startWatchingFriends() {
     if (widget.userId != null) return;
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = _currentUser;
     if (user == null) return;
 
     _friendsListSub = FirebaseFirestore.instance
@@ -392,7 +397,7 @@ class _MapPageState extends State<MapPage> {
     } catch (_) {}
 
     if (!mounted) return;
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = _currentUser;
     final filterUserId = widget.userId ?? user?.id;
     final photos = await MyPhotoService.fetchAllPhotos(
       onlyUserId: filterUserId,
@@ -476,7 +481,7 @@ class _MapPageState extends State<MapPage> {
 
   void _onMapTap(MapContentGestureContext gestureContext) async {
     final tapScreen = gestureContext.touchPosition;
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = _currentUser;
 
     // Check if tapped on a friend avatar (44px hit area)
     for (final entry in _friendMapPoints.entries) {
@@ -526,7 +531,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<Uint8List> _buildProfileImage() async {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = _currentUser;
     final photoUrl = user?.photoUrl;
 
     const int size = 96;
@@ -604,7 +609,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _loadSharedCountriesAndColor() async {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = _currentUser;
     final targetId = widget.userId ?? user?.id;
     if (targetId == null || _mapboxMap == null) return;
 

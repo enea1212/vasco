@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:vasco/firebase_options.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 import 'package:vasco/providers/auth_provider.dart';
@@ -10,11 +11,13 @@ import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/user_repository.dart';
 import 'package:vasco/repository/friends_repository.dart';
 import 'package:vasco/providers/friends_provider.dart';
+import 'package:vasco/providers/feed_cache_provider.dart';
 import 'package:vasco/repository/messaging_repository.dart';
 import 'package:vasco/providers/messaging_provider.dart';
 import 'package:vasco/screens/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/services/auth_service.dart';
+import 'package:vasco/services/feed_cache_service.dart';
 import 'package:vasco/models/user_model.dart';
 
 Future<void> main() async {
@@ -27,6 +30,8 @@ Future<void> main() async {
     },
   );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Hive.initFlutter();
+  await Hive.openBox(FeedCacheService.boxName);
 
   runApp(
     MultiProvider(
@@ -44,6 +49,9 @@ Future<void> main() async {
         Provider<FriendsRepository>(create: (_) => FriendsRepository()),
         ChangeNotifierProvider<FriendsProvider>(
           create: (_) => FriendsProvider(),
+        ),
+        ChangeNotifierProvider<FeedCacheProvider>(
+          create: (_) => FeedCacheProvider()..init(),
         ),
         Provider<MessagingRepository>(create: (_) => MessagingRepository()),
         ChangeNotifierProxyProvider<MessagingRepository, MessagingProvider>(
