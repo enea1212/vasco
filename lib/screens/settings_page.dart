@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vasco/providers/friend_location_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/services/location_groups_service.dart';
@@ -42,12 +43,18 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _toggleLocationSharing(String uid) async {
     if (_locationLoading) return;
     final current = _locationSharing ?? true;
+    final newVisibility = current ? 'none' : 'all';
     setState(() {
       _locationSharing = !current;
       _locationLoading = true;
     });
     try {
-      await LocationGroupsService.setVisibility(uid, current ? 'none' : 'all');
+      await LocationGroupsService.setVisibility(uid, newVisibility);
+      if (mounted) {
+        await context
+            .read<FriendLocationProvider>()
+            .updateVisibility(uid, newVisibility);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _locationSharing = current);

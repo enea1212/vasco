@@ -11,7 +11,9 @@ import 'package:vasco/repository/post_repository.dart';
 import 'package:vasco/repository/user_repository.dart';
 import 'package:vasco/repository/friends_repository.dart';
 import 'package:vasco/providers/friends_provider.dart';
+import 'package:vasco/providers/friend_location_provider.dart';
 import 'package:vasco/providers/feed_cache_provider.dart';
+import 'package:vasco/services/location_groups_service.dart';
 import 'package:vasco/repository/messaging_repository.dart';
 import 'package:vasco/providers/messaging_provider.dart';
 import 'package:vasco/screens/home_screen.dart';
@@ -49,6 +51,9 @@ Future<void> main() async {
         Provider<FriendsRepository>(create: (_) => FriendsRepository()),
         ChangeNotifierProvider<FriendsProvider>(
           create: (_) => FriendsProvider(),
+        ),
+        ChangeNotifierProvider<FriendLocationProvider>(
+          create: (_) => FriendLocationProvider(),
         ),
         ChangeNotifierProvider<FeedCacheProvider>(
           create: (_) => FeedCacheProvider()..init(),
@@ -182,6 +187,12 @@ class MyApp extends StatelessWidget {
               context.read<PhotosProvider>().listenToUserPhotos(uid);
               context.read<FriendsProvider>().init(uid);
               context.read<MessagingProvider>().init(uid);
+              final locationProvider = context.read<FriendLocationProvider>();
+              locationProvider.init(uid);
+              LocationGroupsService.getVisibility(uid).then(
+                (vis) => locationProvider.startPublishing(uid, vis),
+                onError: (_) => locationProvider.startPublishing(uid, 'all'),
+              );
             });
             return const HomeScreen();
           }

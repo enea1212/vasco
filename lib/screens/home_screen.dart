@@ -1065,18 +1065,28 @@ class _PostCardState extends State<_PostCard> {
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (postUserId.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => UserProfileScreen(
-                            userId: postUserId,
-                            initialDisplayName: displayName,
-                            initialPhotoUrl: userPhotoUrl.isNotEmpty
-                                ? userPhotoUrl
-                                : null,
+                      if (postUserId == currentUserId) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const ProfileScreen(showBackButton: true),
                           ),
-                        ),
-                      );
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UserProfileScreen(
+                              userId: postUserId,
+                              initialDisplayName: displayName,
+                              initialPhotoUrl: userPhotoUrl.isNotEmpty
+                                  ? userPhotoUrl
+                                  : null,
+                            ),
+                          ),
+                        );
+                      }
                     }
                   },
                   child: Row(

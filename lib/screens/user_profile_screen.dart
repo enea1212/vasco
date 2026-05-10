@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vasco/utils/scroll_utils.dart';
 import 'package:vasco/providers/friends_provider.dart';
 import 'package:vasco/providers/user_provider.dart';
 import 'package:vasco/repository/edit_profile.dart';
@@ -31,15 +33,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _loadingUser = true;
   bool _friendActionLoading = false;
   bool _hasPendingRequest = false;
+  Stream<QuerySnapshot>? _photosStream;
 
   @override
   void initState() {
     super.initState();
+    _photosStream = FirebaseFirestore.instance
+        .collection('location_photos')
+        .where('userId', isEqualTo: widget.userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
     _loadUserData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _checkPendingRequest();
     });
+  }
+
+  Future<void> _onRefresh() async {
+    await Future.wait([_loadUserData(), _checkPendingRequest()]);
+    if (mounted) {
+      setState(() {
+        _photosStream = FirebaseFirestore.instance
+            .collection('location_photos')
+            .where('userId', isEqualTo: widget.userId)
+            .orderBy('createdAt', descending: true)
+            .snapshots();
+      });
+    }
   }
 
   Future<void> _checkPendingRequest() async {
@@ -220,30 +241,50 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: isLocked
-          ? CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child: _buildHeader(isFriend, isOwnProfile)),
-                SliverToBoxAdapter(child: _buildLockedPlaceholder()),
-                const SliverToBoxAdapter(child: SizedBox(height: 60)),
-              ],
+          ? ScrollConfiguration(
+              behavior: const NoGlowScrollBehavior(),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
+                ),
+                slivers: [
+                  CupertinoSliverRefreshControl(
+                    onRefresh: _onRefresh,
+                    refreshTriggerPullDistance: 36,
+                    refreshIndicatorExtent: 30,
+                    builder: buildPullRefreshIndicator,
+                  ),
+                  SliverToBoxAdapter(child: _buildHeader(isFriend, isOwnProfile)),
+                  SliverToBoxAdapter(child: _buildLockedPlaceholder()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 60)),
+                ],
+              ),
             )
           : StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('location_photos')
-                  .where('userId', isEqualTo: widget.userId)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+              stream: _photosStream,
               builder: (context, photosSnap) {
                 final photoDocs = photosSnap.data?.docs ?? [];
-                return CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _buildHeader(isFriend, isOwnProfile),
+                return ScrollConfiguration(
+                  behavior: const NoGlowScrollBehavior(),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
                     ),
-                    SliverToBoxAdapter(child: _buildStats(photoDocs.length)),
-                    SliverToBoxAdapter(child: _buildPhotosSection(photoDocs)),
-                    const SliverToBoxAdapter(child: SizedBox(height: 60)),
-                  ],
+                    slivers: [
+                      CupertinoSliverRefreshControl(
+                        onRefresh: _onRefresh,
+                        refreshTriggerPullDistance: 36,
+                        refreshIndicatorExtent: 30,
+                        builder: buildPullRefreshIndicator,
+                      ),
+                      SliverToBoxAdapter(
+                        child: _buildHeader(isFriend, isOwnProfile),
+                      ),
+                      SliverToBoxAdapter(child: _buildStats(photoDocs.length)),
+                      SliverToBoxAdapter(child: _buildPhotosSection(photoDocs)),
+                      const SliverToBoxAdapter(child: SizedBox(height: 60)),
+                    ],
+                  ),
                 );
               },
             ),

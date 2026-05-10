@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:vasco/helpers/mapbox_helper.dart';
 import 'package:vasco/services/photo_service.dart';
-import 'package:vasco/services/location_groups_service.dart';
+import '../providers/friend_location_provider.dart';
 import 'package:vasco/widgets/story_viewer.dart';
 import 'package:vasco/screens/user_profile_screen.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -39,21 +39,16 @@ class _MapPageState extends State<MapPage> {
   Map<String, dynamic>? _geoJsonData;
 
   geo.Position? _currentPosition;
-  StreamSubscription<geo.Position>? _positionStream;
   Uint8List? _cachedProfileImage;
 
   List<Map<String, String>> _sharedCountries = [];
   bool _heatmapVisible = true;
 
   final Map<String, PointAnnotation> _friendAnnotations = {};
-  final Map<String, StreamSubscription<dynamic>> _friendLocationSubs = {};
   final Map<String, Uint8List> _friendAvatarCache = {};
-  final Map<String, Map<String, String?>> _friendData = {};
   final Map<String, Point> _friendMapPoints = {};
-  StreamSubscription<dynamic>? _friendsListSub;
   StreamSubscription<DocumentSnapshot>? _userDocSub;
-  String _locationVisibility = 'all';
-  String? _currentUserIdForLocationCleanup;
+  FriendLocationProvider? _locationProvider;
   UserModel? _currentUser;
 
   final Completer<void> _mapReadyCompleter = Completer<void>();
@@ -68,26 +63,21 @@ class _MapPageState extends State<MapPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _currentUser = Provider.of<UserProvider>(context).user;
-    _currentUserIdForLocationCleanup ??= _currentUser?.id;
+    final newProvider = Provider.of<FriendLocationProvider>(
+      context,
+      listen: false,
+    );
+    if (_locationProvider != newProvider) {
+      _locationProvider?.removeListener(_onLocationsChanged);
+      _locationProvider = newProvider;
+      _locationProvider!.addListener(_onLocationsChanged);
+    }
   }
 
   @override
   void dispose() {
-    _positionStream?.cancel();
+    _locationProvider?.removeListener(_onLocationsChanged);
     _userDocSub?.cancel();
-    _friendsListSub?.cancel();
-    for (final sub in _friendLocationSubs.values) {
-      sub.cancel();
-    }
-    if (widget.userId == null) {
-      final uid = _currentUserIdForLocationCleanup;
-      if (uid != null) {
-        FirebaseFirestore.instance
-            .collection('user_locations')
-            .doc(uid)
-            .delete();
-      }
-    }
     super.dispose();
   }
 
@@ -100,8 +90,6 @@ class _MapPageState extends State<MapPage> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     await _mapReadyCompleter.future;
-    if (!mounted) return;
-    if (widget.userId == null) _startPositionStream();
   }
 
   Future<void> _initLocationAndImage() async {
@@ -138,36 +126,59 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  void _startPositionStream() {
-    _positionStream =
-        geo.Geolocator.getPositionStream(
-          locationSettings: const geo.LocationSettings(
-            accuracy: geo.LocationAccuracy.high,
-            distanceFilter: 10,
-          ),
-        ).listen(
-          (geo.Position position) async {
-            if (!mounted) return;
-            setState(() => _currentPosition = position);
-            await _refreshUserAnnotation(position);
-            _publishMyLocation(position);
-          },
-          onError: (error, stackTrace) {
-            debugPrint('[MapPage] position stream error: $error');
-          },
-        );
+  void _onLocationsChanged() {
+    if (!mounted) return;
+    final pos = _locationProvider?.myPosition;
+    if (pos != null && _pointAnnotationManager != null) {
+      if (_currentPosition == null ||
+          pos.latitude != _currentPosition!.latitude ||
+          pos.longitude != _currentPosition!.longitude) {
+        setState(() => _currentPosition = pos);
+        _refreshUserAnnotation(pos);
+      }
+    }
+    if (_pointAnnotationManager != null) {
+      _syncFriendAnnotations();
+    }
   }
 
-  void _publishMyLocation(geo.Position pos) {
-    if (_locationVisibility == 'none') return;
-    final user = _currentUser;
-    if (user == null) return;
-    FirebaseFirestore.instance.collection('user_locations').doc(user.id).set({
-      'latitude': pos.latitude,
-      'longitude': pos.longitude,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'sharedGroupId': _locationVisibility,
-    }, SetOptions(merge: true));
+  Future<void> _syncFriendAnnotations() async {
+    if (!mounted || _pointAnnotationManager == null) return;
+    final friends = _locationProvider?.friends ?? {};
+
+    for (final id in _friendAnnotations.keys.toList()) {
+      if (!friends.containsKey(id)) {
+        final ann = _friendAnnotations.remove(id);
+        _friendAvatarCache.remove(id);
+        _friendMapPoints.remove(id);
+        if (ann != null) await _pointAnnotationManager?.delete(ann);
+      }
+    }
+
+    for (final entry in friends.entries) {
+      final friendId = entry.key;
+      final friendData = entry.value;
+
+      if (!friendData.hasLocation) {
+        final ann = _friendAnnotations.remove(friendId);
+        _friendMapPoints.remove(friendId);
+        if (ann != null) await _pointAnnotationManager?.delete(ann);
+        continue;
+      }
+
+      if (!_friendAvatarCache.containsKey(friendId)) {
+        _friendAvatarCache[friendId] = await _buildFriendAvatar(
+          friendData.photoUrl,
+          friendData.displayName,
+        );
+      }
+
+      await _updateFriendAnnotation(
+        friendId,
+        friendData.latitude!,
+        friendData.longitude!,
+      );
+    }
   }
 
   bool _isCurrentCountryUnlocked(geo.Position pos) {
@@ -213,91 +224,6 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  void _startWatchingFriends() {
-    if (widget.userId != null) return;
-    final user = _currentUser;
-    if (user == null) return;
-
-    _friendsListSub = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.id)
-        .collection('friends')
-        .snapshots()
-        .listen(
-          (snap) async {
-            if (!mounted) return;
-            final currentIds = snap.docs
-                .map((d) => d['userId'] as String)
-                .toSet();
-
-            // Cancel subs for removed friends and delete their annotations
-            for (final id in _friendLocationSubs.keys.toList()) {
-              if (!currentIds.contains(id)) {
-                await _friendLocationSubs[id]?.cancel();
-                _friendLocationSubs.remove(id);
-                _friendAvatarCache.remove(id);
-                _friendData.remove(id);
-                _friendMapPoints.remove(id);
-                final ann = _friendAnnotations.remove(id);
-                if (ann != null) await _pointAnnotationManager?.delete(ann);
-              }
-            }
-
-            // Subscribe to new friends
-            for (final doc in snap.docs) {
-              final friendId = doc['userId'] as String;
-              if (_friendLocationSubs.containsKey(friendId)) continue;
-
-              // Fetch profile
-              final userDoc = await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(friendId)
-                  .get();
-              if (!userDoc.exists || !mounted) continue;
-              final data = userDoc.data()!;
-              final photoUrl = data['photoUrl'] as String?;
-              final displayName = data['displayName'] as String?;
-
-              _friendData[friendId] = {
-                'displayName': displayName,
-                'photoUrl': photoUrl,
-              };
-              _friendAvatarCache[friendId] = await _buildFriendAvatar(
-                photoUrl,
-                displayName,
-              );
-
-              _friendLocationSubs[friendId] = FirebaseFirestore.instance
-                  .collection('user_locations')
-                  .doc(friendId)
-                  .snapshots()
-                  .listen(
-                    (locDoc) async {
-                      if (!mounted) return;
-                      if (!locDoc.exists) {
-                        final ann = _friendAnnotations.remove(friendId);
-                        if (ann != null) {
-                          await _pointAnnotationManager?.delete(ann);
-                        }
-                        return;
-                      }
-                      final lat = (locDoc['latitude'] as num).toDouble();
-                      final lng = (locDoc['longitude'] as num).toDouble();
-                      await _updateFriendAnnotation(friendId, lat, lng);
-                    },
-                    onError: (error, stackTrace) {
-                      debugPrint(
-                        '[MapPage] friend location stream error for $friendId: $error',
-                      );
-                    },
-                  );
-            }
-          },
-          onError: (error, stackTrace) {
-            debugPrint('[MapPage] friends list stream error: $error');
-          },
-        );
-  }
 
   Future<Uint8List> _buildFriendAvatar(
     String? photoUrl,
@@ -491,13 +417,13 @@ class _MapPageState extends State<MapPage> {
         final dy = (tapScreen.y - friendScreen.y).abs();
         if (dx < 44 && dy < 44) {
           if (!mounted) return;
-          final data = _friendData[entry.key];
+          final data = _locationProvider?.friends[entry.key];
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => UserProfileScreen(
                 userId: entry.key,
-                initialDisplayName: data?['displayName'],
-                initialPhotoUrl: data?['photoUrl'],
+                initialDisplayName: data?.displayName,
+                initialPhotoUrl: data?.photoUrl,
               ),
             ),
           );
@@ -661,11 +587,7 @@ class _MapPageState extends State<MapPage> {
     await _refreshHeatmapLayer();
 
     if (widget.userId == null) {
-      final uid = user?.id;
-      if (uid != null) {
-        _locationVisibility = await LocationGroupsService.getVisibility(uid);
-      }
-      _startWatchingFriends();
+      await _syncFriendAnnotations();
     }
   }
 

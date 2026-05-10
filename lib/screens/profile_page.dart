@@ -15,7 +15,8 @@ import 'package:vasco/screens/settings_page.dart';
 import 'package:vasco/widgets/post_story_viewer.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool showBackButton;
+  const ProfileScreen({super.key, this.showBackButton = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -93,15 +94,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: _photosStream,
-      builder: (context, photosSnap) {
-        final photoDocs = photosSnap.data?.docs ?? [];
-        final photosCount = photoDocs.length;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _photosStream,
+        builder: (context, photosSnap) {
+          final photoDocs = photosSnap.data?.docs ?? [];
+          final photosCount = photoDocs.length;
 
-        return ScrollConfiguration(
-          behavior: const NoGlowScrollBehavior(),
-          child: CustomScrollView(
+          return ScrollConfiguration(
+            behavior: const NoGlowScrollBehavior(),
+            child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(
               parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
             ),
@@ -114,7 +117,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               // ── Header gradient ───────────────────────────────────────────
-              SliverToBoxAdapter(child: _ProfileHeader(user: user)),
+              SliverToBoxAdapter(
+                child: _ProfileHeader(
+                  user: user,
+                  showBackButton: widget.showBackButton,
+                ),
+              ),
 
               // ── Stats cards 2x2 ──────────────────────────────────────────
               SliverToBoxAdapter(
@@ -207,7 +215,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         );
-      },
+        },
+      ),
     );
   }
 
@@ -342,7 +351,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _ProfileHeader extends StatelessWidget {
   final UserModel user;
-  const _ProfileHeader({required this.user});
+  final bool showBackButton;
+  const _ProfileHeader({required this.user, this.showBackButton = false});
 
   @override
   Widget build(BuildContext context) {
@@ -371,21 +381,34 @@ class _ProfileHeader extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            // Bara de sus: titlu + setări
+            // Bara de sus: titlu + setări (sau back + setări)
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
+              padding: const EdgeInsets.fromLTRB(4, 12, 8, 0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Profil',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
+                  if (showBackButton)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.only(left: 16),
+                      child: Text(
+                        'Profil',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
                     ),
-                  ),
                   IconButton(
                     icon: const Icon(
                       Icons.settings_rounded,
