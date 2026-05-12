@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vasco/providers/auth_provider.dart';
+import 'package:vasco/presentation/providers/infrastructure/auth_provider.dart';
 import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -29,12 +29,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
 String? _validateEmail(String? value) {
   if (value == null || value.isEmpty) {
-    return 'Te rugăm să introduci un email';
+    return 'Please enter an email';
   }
   // Expresie regulată pentru un format de email valid
   final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
   if (!emailRegex.hasMatch(value)) {
-    return 'Formatul emailului este invalid (ex: nume@email.com)';
+    return 'Invalid email format (e.g. name@email.com)';
   }
   return null;
 }

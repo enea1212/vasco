@@ -5,8 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/tinder_services/tinder_location_service.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'widgets/tinder_card.dart';
 import 'widgets/match_dialog.dart';
 import 'widgets/profile_detail_sheet.dart';
@@ -58,11 +57,6 @@ class _SwipeScreenState extends State<SwipeScreen> {
   }
 
   Future<void> _updateLocationThenLoad() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      await LocationService().updateCurrentUserLocation(uid);
-    }
-    if (!mounted) return;
     _loadRecommendations();
   }
 
@@ -135,7 +129,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Eroare swipe: $e')));
+        ).showSnackBar(SnackBar(content: Text('Swipe error: $e')));
       }
     }
   }
@@ -173,7 +167,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.public),
-                tooltip: 'Conexiunile mele',
+                tooltip: 'My Connections',
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const MyMatchesScreen()),
@@ -223,13 +217,13 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Nu am găsit persoane noi în zonă.',
+                    'No new people found nearby.',
                     style: TextStyle(color: Color(0xFF6B7280), fontSize: 16),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _loadRecommendations,
-                    child: const Text('Caută din nou'),
+                    child: const Text('Search again'),
                   ),
                 ],
               ),

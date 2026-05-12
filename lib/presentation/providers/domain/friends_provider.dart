@@ -36,6 +36,7 @@ class FriendsProvider extends ChangeNotifier {
   List<FriendRequestEntity> _incomingRequests = [];
   List<UserEntity> _searchResults = [];
   bool _isLoading = false;
+  bool _initialLoadComplete = false;
   final Map<String, String> _statusCache = {};
   StreamSubscription<List<UserEntity>>? _friendsSub;
   StreamSubscription<List<FriendRequestEntity>>? _requestsSub;
@@ -44,6 +45,8 @@ class FriendsProvider extends ChangeNotifier {
   List<FriendRequestEntity> get incomingRequests => _incomingRequests;
   List<UserEntity> get searchResults => _searchResults;
   bool get isLoading => _isLoading;
+  bool get isSearching => _isLoading;
+  bool get initialLoadComplete => _initialLoadComplete;
   int get pendingCount => _incomingRequests.length;
 
   void init(String userId) {
@@ -53,7 +56,11 @@ class FriendsProvider extends ChangeNotifier {
     _statusCache.clear();
 
     _friendsSub = _getFriends(userId).listen(
-      (list) { _friends = list; notifyListeners(); },
+      (list) {
+        _friends = list;
+        _initialLoadComplete = true;
+        notifyListeners();
+      },
       onError: (e) {
         debugPrint('[FriendsProvider] friends stream error: $e');
         _friends = [];
@@ -91,6 +98,19 @@ class FriendsProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void clearSearch() {
+    _searchResults = [];
+    notifyListeners();
+  }
+
+  Future<String> getStatus(String currentUserId, String otherUserId) =>
+      getRelationship(currentUserId, otherUserId);
+
+  Future<void> cancelRequest(String from, String to) async {
+    _statusCache[to] = 'none';
+    notifyListeners();
   }
 
   Future<String> getRelationship(

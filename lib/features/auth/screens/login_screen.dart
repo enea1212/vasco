@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vasco/providers/auth_provider.dart';
+import 'package:vasco/presentation/providers/infrastructure/auth_provider.dart';
 import 'package:vasco/features/auth/screens/register_screen.dart';
 import 'package:provider/provider.dart';
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vasco/models/friend_request_model.dart';
-import 'package:vasco/models/user_model.dart';
-import 'package:vasco/providers/friends_provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/friends_repository.dart';
-import 'package:vasco/screens/user_profile_screen.dart';
+import 'package:vasco/domain/entities/friend_request_entity.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
+import 'package:vasco/domain/repositories/i_user_repository.dart';
+import 'package:vasco/presentation/providers/domain/friends_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
+import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/core/constants/app_sizes.dart';
 import 'widgets/friend_tile.dart';
@@ -68,7 +68,7 @@ class _FriendsPageState extends State<FriendsPage>
             tabs: [
               const Tab(
                 icon: Icon(Icons.search_rounded, size: 20),
-                text: 'Caută',
+                text: 'Search',
               ),
               Tab(
                 child: Stack(
@@ -80,7 +80,7 @@ class _FriendsPageState extends State<FriendsPage>
                         Icon(Icons.person_add_rounded, size: 20),
                         SizedBox(height: 2),
                         Text(
-                          'Cereri',
+                          'Requests',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -113,7 +113,7 @@ class _FriendsPageState extends State<FriendsPage>
               ),
               const Tab(
                 icon: Icon(Icons.people_rounded, size: 20),
-                text: 'Prieteni',
+                text: 'Friends',
               ),
             ],
           ),
@@ -136,7 +136,7 @@ class _FriendsPageState extends State<FriendsPage>
 // ─── Tab Căutare ─────────────────────────────────────────────────────────────
 
 class _SearchTab extends StatefulWidget {
-  final UserModel currentUser;
+  final UserEntity currentUser;
   const _SearchTab({required this.currentUser});
 
   @override
@@ -164,7 +164,7 @@ class _SearchTabState extends State<_SearchTab> {
             controller: _ctrl,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: 'Caută după nume...',
+              hintText: 'Search by name...',
               prefixIcon: const Icon(
                 Icons.search_rounded,
                 color: AppColors.textHint,
@@ -215,12 +215,11 @@ class _SearchTabState extends State<_SearchTab> {
         ),
         if (provider.isSearching)
           const LinearProgressIndicator()
-        else if (provider.searchQuery.isNotEmpty &&
-            provider.searchResults.isEmpty)
+        else if (_ctrl.text.isNotEmpty && provider.searchResults.isEmpty)
           const Padding(
             padding: EdgeInsets.all(32),
             child: Text(
-              'Niciun utilizator găsit.',
+              'No user found.',
               style: TextStyle(color: Colors.grey),
             ),
           )
@@ -242,7 +241,7 @@ class _SearchTabState extends State<_SearchTab> {
 // ─── Tile cu buton de acțiune pentru un utilizator din căutare ───────────────
 
 class _UserTile extends StatefulWidget {
-  final UserModel user;
+  final UserEntity user;
   final String currentUserId;
   const _UserTile({required this.user, required this.currentUserId});
 
@@ -359,7 +358,7 @@ class _UserTileState extends State<_UserTile> {
     switch (_status) {
       case 'friends':
         return _actionBtn(
-          'Prieten',
+          'Friend',
           AppColors.surfaceAlt,
           AppColors.textSecondary,
           () {
@@ -372,7 +371,7 @@ class _UserTileState extends State<_UserTile> {
         );
       case 'pending_sent':
         return _actionBtn(
-          'Trimis',
+          'Sent',
           AppColors.surfaceAlt,
           AppColors.textMuted,
           () {
@@ -385,7 +384,7 @@ class _UserTileState extends State<_UserTile> {
         );
       case 'pending_received':
         return _actionBtn(
-          'Acceptă',
+          'Accept',
           AppColors.textPrimary,
           Colors.white,
           () {
@@ -403,7 +402,7 @@ class _UserTileState extends State<_UserTile> {
         );
       default:
         return _actionBtn(
-          '+ Adaugă',
+          '+ Add',
           AppColors.primary,
           Colors.white,
           () {
@@ -434,7 +433,7 @@ class _UserTileState extends State<_UserTile> {
       setState(() => _status = previousStatus);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Acțiunea a eșuat: $e')));
+      ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
     } finally {
       if (mounted) setState(() => _actionLoading = false);
     }
@@ -465,7 +464,7 @@ class _UserTileState extends State<_UserTile> {
 // ─── Tab Cereri primite ───────────────────────────────────────────────────────
 
 class _RequestsTab extends StatelessWidget {
-  final UserModel currentUser;
+  final UserEntity currentUser;
   const _RequestsTab({required this.currentUser});
 
   @override
@@ -492,7 +491,7 @@ class _RequestsTab extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Nicio cerere',
+              'No requests',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
@@ -501,7 +500,7 @@ class _RequestsTab extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Nu ai cereri de prietenie în așteptare.',
+              'No pending friend requests.',
               style: TextStyle(color: AppColors.textHint, fontSize: 13),
             ),
           ],
@@ -530,7 +529,7 @@ class _RequestsTab extends StatelessWidget {
 }
 
 class _RequestTile extends StatefulWidget {
-  final FriendRequestModel request;
+  final FriendRequestEntity request;
   final String currentUserId;
   const _RequestTile({required this.request, required this.currentUserId});
 
@@ -539,7 +538,7 @@ class _RequestTile extends StatefulWidget {
 }
 
 class _RequestTileState extends State<_RequestTile> {
-  UserModel? _sender;
+  UserEntity? _sender;
   bool _loading = true;
   bool _actionLoading = false;
 
@@ -550,10 +549,11 @@ class _RequestTileState extends State<_RequestTile> {
   }
 
   Future<void> _loadSender() async {
-    final user = await FriendsRepository().fetchUser(widget.request.fromUserId);
+    final entity =
+        await context.read<IUserRepository>().getUser(widget.request.fromUserId);
     if (mounted) {
       setState(() {
-        _sender = user;
+        _sender = entity;
         _loading = false;
       });
     }
@@ -563,7 +563,7 @@ class _RequestTileState extends State<_RequestTile> {
   Widget build(BuildContext context) {
     final provider = context.read<FriendsProvider>();
     final name = _loading
-        ? 'Se încarcă...'
+        ? 'Loading...'
         : (_sender?.displayName ?? _sender?.email ?? widget.request.fromUserId);
 
     return Container(
@@ -609,7 +609,7 @@ class _RequestTileState extends State<_RequestTile> {
                   ),
                 ),
                 const Text(
-                  'Vrea să fii prieten',
+                  'Wants to be friends',
                   style: TextStyle(color: AppColors.textHint, fontSize: 13),
                 ),
               ],
@@ -642,10 +642,11 @@ class _RequestTileState extends State<_RequestTile> {
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.textPrimary,
-                          borderRadius: BorderRadius.circular(AppSizes.radiusIcon),
+                          borderRadius:
+                              BorderRadius.circular(AppSizes.radiusIcon),
                         ),
                         child: const Text(
-                          'Acceptă',
+                          'Accept',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -658,10 +659,7 @@ class _RequestTileState extends State<_RequestTile> {
                     GestureDetector(
                       onTap: () async {
                         await _runRequestAction(
-                          () => provider.declineRequest(
-                            widget.request.id,
-                            widget.request.fromUserId,
-                          ),
+                          () => provider.declineRequest(widget.request.id),
                         );
                       },
                       child: Container(
@@ -671,10 +669,11 @@ class _RequestTileState extends State<_RequestTile> {
                         ),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(AppSizes.radiusIcon),
+                          borderRadius:
+                              BorderRadius.circular(AppSizes.radiusIcon),
                         ),
                         child: const Text(
-                          'Refuză',
+                          'Decline',
                           style: TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 13,
@@ -699,7 +698,7 @@ class _RequestTileState extends State<_RequestTile> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Acțiunea a eșuat: $e')));
+      ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
     } finally {
       if (mounted) setState(() => _actionLoading = false);
     }
@@ -709,7 +708,7 @@ class _RequestTileState extends State<_RequestTile> {
 // ─── Tab Lista prieteni ───────────────────────────────────────────────────────
 
 class _FriendsTab extends StatelessWidget {
-  final UserModel currentUser;
+  final UserEntity currentUser;
   const _FriendsTab({required this.currentUser});
 
   @override
@@ -736,7 +735,7 @@ class _FriendsTab extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Niciun prieten',
+              'No friends',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
@@ -745,7 +744,7 @@ class _FriendsTab extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Caută utilizatori pentru a adăuga\nprieteni noi.',
+              'Search for users to add\nnew friends.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textHint, fontSize: 13),
             ),
@@ -805,21 +804,21 @@ class _FriendsTab extends StatelessWidget {
     return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Elimini prieten?'),
+            title: const Text('Remove friend?'),
             content: Text(
-              'Ești sigur că vrei să elimini pe $name din lista de prieteni?',
+              'Are you sure you want to remove $name from your friends?',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Nu'),
+                child: const Text('No'),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                 ),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Elimină'),
+                child: const Text('Remove'),
               ),
             ],
           ),

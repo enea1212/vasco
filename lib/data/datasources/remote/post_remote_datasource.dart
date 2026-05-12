@@ -8,6 +8,17 @@ class PostRemoteDatasource {
 
   // ─── Feed (location_photos) ───────────────────────────────────────────────
 
+  /// Posts for a single user, ordered by createdAt desc.
+  Stream<List<Map<String, dynamic>>> watchUserPosts(String userId) {
+    return _db
+        .collection('location_photos')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+  }
+
   /// Main feed: last 40 location_photos ordered by createdAt desc.
   Stream<List<Map<String, dynamic>>> watchFeed() {
     return _db
@@ -60,6 +71,29 @@ class PostRemoteDatasource {
   Future<void> deletePost(String postId) async {
     final callable = _functions.httpsCallable('deletePost');
     await callable.call({'postId': postId});
+  }
+
+  /// Posts from a specific set of user IDs (≤ 30 per Firestore whereIn limit).
+  /// Sorted client-side by createdAt desc to avoid requiring a composite index.
+  Stream<List<Map<String, dynamic>>> watchPostsByUserIds(List<String> userIds) {
+    if (userIds.isEmpty) return Stream.value([]);
+    final ids = userIds.length > 30 ? userIds.sublist(0, 30) : userIds;
+    return _db
+        .collection('location_photos')
+        .where('userId', whereIn: ids)
+        .limit(40)
+        .snapshots()
+        .map((snap) {
+          final list = snap.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList()
+            ..sort((a, b) {
+              final ta = (a['createdAt'] as Timestamp?)?.seconds ?? 0;
+              final tb = (b['createdAt'] as Timestamp?)?.seconds ?? 0;
+              return tb.compareTo(ta);
+            });
+          return list;
+        });
   }
 
   // ─── Location photos write ────────────────────────────────────────────────

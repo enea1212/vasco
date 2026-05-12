@@ -60,7 +60,7 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Matchurile mele',
+          'My Matches',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         centerTitle: true,
@@ -116,7 +116,7 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Niciun match încă',
+            'No matches yet',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 18,
@@ -125,7 +125,7 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Continuă să explorezi pentru\na găsi compatibilități!',
+            'Keep exploring to\nfind connections!',
             textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
@@ -145,7 +145,7 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = match['displayName'] as String? ?? 'Utilizator';
+    final name = match['displayName'] as String? ?? 'User';
     final photo = match['photoUrl'] as String?;
     final age = match['age'] as int?;
     final conversationId = match['conversationId'] as String?;

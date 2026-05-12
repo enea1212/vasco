@@ -50,7 +50,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final profile  = widget.profile;
-    final name     = profile['displayName'] as String? ?? 'Anonim';
+    final name     = profile['displayName'] as String? ?? 'Anonymous';
     final age      = profile['age'];
     final distance = profile['distance'] as String?;
     final bio      = profile['bio'] as String?;
@@ -277,7 +277,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                               size: 16, color: Color(0xFF9CA3AF)),
                           const SizedBox(width: 6),
                           Text(
-                            '${photos.length} fotografii',
+                            '${photos.length} photos',
                             style: const TextStyle(
                                 fontSize: 13, color: Color(0xFF9CA3AF)),
                           ),
@@ -287,7 +287,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                     ],
 
                     if (bio != null && bio.isNotEmpty) ...[
-                      _SectionTitle('Despre mine'),
+                      _SectionTitle('About me'),
                       const SizedBox(height: 10),
                       Text(
                         bio,
@@ -301,7 +301,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                     ],
 
                     if (interests.isNotEmpty) ...[
-                      _SectionTitle('Interese'),
+                      _SectionTitle('Interests'),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
@@ -320,7 +320,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: 32),
                           child: Text(
-                            'Acest utilizator nu a adăugat\nîncă informații despre sine.',
+                            "This user hasn't added\nany information yet.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 color: Color(0xFF9CA3AF), fontSize: 14),

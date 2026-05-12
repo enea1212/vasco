@@ -73,6 +73,19 @@ class FriendRemoteDatasource {
     return 'none';
   }
 
+  /// Returns only the friend IDs for [userId] without fetching full user docs.
+  Future<List<String>> fetchFriendIds(String userId) async {
+    final snap = await _db
+        .collection('users')
+        .doc(userId)
+        .collection('friends')
+        .get();
+    return snap.docs
+        .map((d) => d.data()['userId'] as String?)
+        .whereType<String>()
+        .toList();
+  }
+
   // ─── Cloud Function writes ────────────────────────────────────────────────
 
   Future<void> sendFriendRequest(String toUserId) async {

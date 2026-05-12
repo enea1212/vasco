@@ -17,7 +17,7 @@ class MatchDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final matchedName = matchedUser['displayName'] ?? 'Utilizator';
+    final matchedName = matchedUser['displayName'] ?? 'User';
     final matchedPhoto = matchedUser['photoUrl'] as String?;
 
     return Dialog(
@@ -48,7 +48,7 @@ class MatchDialog extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tu și $matchedName v-ați apreciat reciproc',
+                'You and $matchedName liked each other',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 16,
@@ -102,7 +102,7 @@ class MatchDialog extends StatelessWidget {
                       elevation: 0,
                     ),
                     child: const Text(
-                      'Trimite un mesaj 💬',
+                      'Send a message 💬',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -114,7 +114,7 @@ class MatchDialog extends StatelessWidget {
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(
-                  'Continuă să explorezi',
+                  'Keep exploring',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 15,

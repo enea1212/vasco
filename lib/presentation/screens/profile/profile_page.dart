@@ -3,13 +3,13 @@ import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/core/constants/app_colors.dart';
-import 'package:vasco/models/user_model.dart';
-import 'package:vasco/providers/friends_provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/post_repository.dart';
-import 'package:vasco/screens/map_page.dart';
-import 'package:vasco/utils/scroll_utils.dart';
-import 'package:vasco/widgets/post_story_viewer.dart';
+import 'package:vasco/data/datasources/remote/post_remote_datasource.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
+import 'package:vasco/presentation/providers/domain/friends_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
+import 'package:vasco/presentation/screens/map/map_page.dart';
+import 'package:vasco/core/utils/scroll_utils.dart';
+import 'package:vasco/presentation/widgets/story_viewer.dart';
 import 'package:vasco/presentation/screens/profile/edit_profile_screen.dart';
 import 'package:vasco/presentation/screens/profile/dating_preferences_screen.dart';
 import 'package:vasco/presentation/screens/profile/widgets/profile_header.dart';
@@ -157,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             icon: const Icon(Icons.edit_rounded, size: 16),
-                            label: const Text('Editează profilul'),
+                            label: const Text('Edit profile'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.textSecondary,
                               side: const BorderSide(
@@ -182,7 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             icon: const Icon(Icons.search, size: 16),
-                            label: const Text('Întâlnește persoane noi'),
+                            label: const Text('Meet new people'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.rose,
                               side: const BorderSide(
@@ -225,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showFriendsList(BuildContext context, List<UserModel> friends) {
+  void _showFriendsList(BuildContext context, List<UserEntity> friends) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -255,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   children: [
                     const Text(
-                      'Prieteni',
+                      'Friends',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -288,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const Expanded(
                   child: Center(
                     child: Text(
-                      'Nu ai niciun prieten încă.',
+                      'No friends yet.',
                       style: TextStyle(color: AppColors.textHint),
                     ),
                   ),
@@ -364,7 +364,7 @@ class _TripsSection extends StatelessWidget {
     final map = <String, List<QueryDocumentSnapshot>>{};
     for (final doc in photoDocs) {
       final data = doc.data() as Map<String, dynamic>;
-      final country = data['countryName'] as String? ?? 'Altele';
+      final country = data['countryName'] as String? ?? 'Other';
       map.putIfAbsent(country, () => []).add(doc);
     }
     return map;
@@ -378,7 +378,7 @@ class _TripsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Călătoriile mele',
+            'My Trips',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -403,7 +403,7 @@ class _TripsSection extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Nicio fotografie încă',
+                    'No photos yet',
                     style: TextStyle(color: AppColors.textHint),
                   ),
                 ],
@@ -459,7 +459,7 @@ class _CountryPhotoRow extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                '${docs.length} ${docs.length == 1 ? 'fotografie' : 'fotografii'}',
+                '${docs.length} ${docs.length == 1 ? 'photo' : 'photos'}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.textHint,
@@ -481,10 +481,14 @@ class _CountryPhotoRow extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PostStoryViewer(
-                        docs: allDocs.cast<QueryDocumentSnapshot>(),
+                      builder: (_) => StoryViewer(
+                        photos: allDocs
+                            .map((d) => {
+                                  'id': d.id,
+                                  ...(d.data() as Map<String, dynamic>),
+                                })
+                            .toList(),
                         initialIndex: globalIndex >= 0 ? globalIndex : 0,
-                        collection: 'location_photos',
                       ),
                     ),
                   ),
@@ -526,29 +530,29 @@ class _AchievementsSection extends StatelessWidget {
     final achievements = [
       _AchievementData(
         emoji: '🌍',
-        title: 'Explorator Global',
-        subtitle: 'Ai vizitat 10+ țări',
+        title: 'Global Explorer',
+        subtitle: 'Visited 10+ countries',
         isUnlocked: countries >= 10,
         unlockedColor: AppColors.amberLight,
       ),
       _AchievementData(
         emoji: '📷',
-        title: 'Fotograf Pasionat',
-        subtitle: 'Peste 100 de fotografii',
+        title: 'Passionate Photographer',
+        subtitle: 'Over 100 photos',
         isUnlocked: photos >= 100,
         unlockedColor: AppColors.skyLight,
       ),
       _AchievementData(
         emoji: '🧗',
-        title: 'Aventurier',
-        subtitle: 'Ai vizitat 5 țări',
+        title: 'Adventurer',
+        subtitle: 'Visited 5 countries',
         isUnlocked: countries >= 5,
         unlockedColor: AppColors.greenLight,
       ),
       _AchievementData(
         emoji: '👥',
-        title: 'Conector Social',
-        subtitle: '20+ prieteni',
+        title: 'Social Connector',
+        subtitle: '20+ friends',
         isUnlocked: friends >= 20,
         unlockedColor: AppColors.purpleLight,
       ),
@@ -560,7 +564,7 @@ class _AchievementsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Realizări 🏆',
+            'Achievements 🏆',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -659,7 +663,7 @@ void showPostOptions(
   BuildContext context,
   String postId,
   Map<String, dynamic> data,
-  PostRepository postRepo,
+  PostRemoteDatasource postDatasource,
 ) {
   showDialog(
     context: context,
@@ -684,7 +688,7 @@ void showPostOptions(
                       context,
                       postId,
                       data['description'],
-                      postRepo,
+                      postDatasource,
                     );
                   },
                 ),
@@ -699,7 +703,7 @@ void showPostOptions(
                       context,
                       postId,
                       data['imageUrl'],
-                      postRepo,
+                      postDatasource,
                     );
                   },
                 ),
@@ -740,7 +744,7 @@ void _showEditDialog(
   BuildContext context,
   String postId,
   String? currentDesc,
-  PostRepository postRepo,
+  PostRemoteDatasource postDatasource,
 ) {
   final controller = TextEditingController(text: currentDesc);
   var isSaving = false;
@@ -749,12 +753,12 @@ void _showEditDialog(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setDialogState) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Editează'),
+        title: const Text('Edit'),
         content: TextField(controller: controller),
         actions: [
           TextButton(
             onPressed: isSaving ? null : () => Navigator.pop(ctx),
-            child: const Text('Anulează'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: isSaving
@@ -762,12 +766,15 @@ void _showEditDialog(
                 : () async {
                     setDialogState(() => isSaving = true);
                     try {
-                      await postRepo.editPost(postId, controller.text);
+                      await postDatasource.editPost(
+                        postId,
+                        {'description': controller.text},
+                      );
                       if (ctx.mounted) Navigator.pop(ctx);
                     } catch (e) {
                       if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(content: Text('Eroare: $e')),
+                          SnackBar(content: Text('Error: $e')),
                         );
                         setDialogState(() => isSaving = false);
                       }
@@ -779,7 +786,7 @@ void _showEditDialog(
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Salvează'),
+                : const Text('Save'),
           ),
         ],
       ),
@@ -791,7 +798,7 @@ void _showDeleteConfirmation(
   BuildContext context,
   String postId,
   String imageUrl,
-  PostRepository postRepo,
+  PostRemoteDatasource postDatasource,
 ) {
   var isDeleting = false;
   showDialog(
@@ -799,11 +806,11 @@ void _showDeleteConfirmation(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setDialogState) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Ștergi postarea?'),
+        title: const Text('Delete post?'),
         actions: [
           TextButton(
             onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-            child: const Text('Nu'),
+            child: const Text('No'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -815,12 +822,12 @@ void _showDeleteConfirmation(
                 : () async {
                     setDialogState(() => isDeleting = true);
                     try {
-                      await postRepo.deletePost(postId, imageUrl);
+                      await postDatasource.deletePost(postId);
                       if (ctx.mounted) Navigator.pop(ctx);
                     } catch (e) {
                       if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(content: Text('Eroare: $e')),
+                          SnackBar(content: Text('Error: $e')),
                         );
                         setDialogState(() => isDeleting = false);
                       }
@@ -835,7 +842,7 @@ void _showDeleteConfirmation(
                       strokeWidth: 2,
                     ),
                   )
-                : const Text('Șterge'),
+                : const Text('Delete'),
           ),
         ],
       ),

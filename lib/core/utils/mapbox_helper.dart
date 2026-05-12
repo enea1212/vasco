@@ -15,7 +15,6 @@ class MapboxHelper {
     await _applyFilter(map);
   }
 
-  /// Găsește automat layer-ul de borduri (line) care folosește același source
   static Future<void> _detectBorderLayer(MapboxMap map) async {
     try {
       final layers = await map.style.getStyleLayers();
@@ -39,11 +38,9 @@ class MapboxHelper {
     }
   }
 
-  /// Elimină țările vizitate din layer-ul albastru prin filter
   static Future<void> colorCountries(
       MapboxMap? map, List<Map<String, String>> countries) async {
     if (map == null) return;
-
     _visitedIsoCodes.clear();
     for (final country in countries) {
       final String? isoValue = country['value'];
@@ -51,7 +48,6 @@ class MapboxHelper {
         _visitedIsoCodes.add(isoValue);
       }
     }
-
     await _applyFilter(map);
   }
 
@@ -72,10 +68,7 @@ class MapboxHelper {
         filterJson = json.encode(filterExpression);
         debugPrint('[DEBUG] Filtru aplicat pentru: $_visitedIsoCodes');
       }
-
       await map.style.setStyleLayerProperty(_blueLayerId, 'filter', filterJson);
-
-      // Aplică același filtru și pe layer-ul de borduri (dacă a fost detectat)
       if (_detectedBorderLayerId != null) {
         try {
           await map.style.setStyleLayerProperty(
@@ -87,7 +80,6 @@ class MapboxHelper {
     }
   }
 
-  /// Detecția țării bazată pe coordonate și GeoJSON-ul local
   static Map<String, String>? detectCountry(
       double lat, double lng, Map<String, dynamic> geoJsonData) {
     for (final feature in geoJsonData['features']) {
@@ -95,7 +87,6 @@ class MapboxHelper {
       if (geometry == null) continue;
       final String type = geometry['type'] as String;
       bool found = false;
-
       if (type == 'Polygon') {
         final List rings = geometry['coordinates'] as List;
         if (_pointInPolygon(lng, lat, rings[0] as List)) found = true;
@@ -108,15 +99,12 @@ class MapboxHelper {
           }
         }
       }
-
       if (found) {
         final props = feature['properties'] as Map<String, dynamic>?;
         if (props != null) {
           for (final key in ['ISO3166-1-Alpha-2', 'ISO_A2', 'iso_a2']) {
             final val = props[key];
-            if (val != null &&
-                val.toString().isNotEmpty &&
-                val.toString() != '-99') {
+            if (val != null && val.toString().isNotEmpty && val.toString() != '-99') {
               return {'key': 'ISO_A2', 'value': val.toString()};
             }
           }

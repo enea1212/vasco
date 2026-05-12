@@ -35,7 +35,7 @@ class ProfileStatsGrid extends StatelessWidget {
                     iconColor: AppColors.primary,
                     iconBg: AppColors.primaryMid,
                     value: '$countries',
-                    label: 'Țări vizitate',
+                    label: 'Countries visited',
                   ),
                 ),
               ),

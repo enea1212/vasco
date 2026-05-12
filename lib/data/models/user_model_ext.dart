@@ -37,7 +37,8 @@ UserModel userModelFromMap(Map<String, dynamic> map) {
     displayName: map['displayName'] as String?,
     photoUrl: map['photoUrl'] as String?,
     biography: map['bio'] as String?,
-    sharedCountriesCount: (map['sharedCountriesCount'] as num?)?.toInt() ?? 0,
+    sharedCountriesCount: (map['shared_countries'] as List?)?.length ??
+        (map['sharedCountriesCount'] as num?)?.toInt() ?? 0,
     isPrivate: map['isPrivate'] as bool? ?? false,
     birthDate: map['birthDate'] != null
         ? (map['birthDate'] as Timestamp).toDate()

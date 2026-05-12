@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
-import '../helpers/heatmap_helper.dart';
 
 class MyPhotoService {
   static const String _collection = 'location_photos';
@@ -61,7 +61,7 @@ class MyPhotoService {
       final data = doc.data() as Map<String, dynamic>;
       final lat = (data['latitude'] as num).toDouble();
       final lng = (data['longitude'] as num).toDouble();
-      if (MyHeatmapHelper.distanceKm(latitude, longitude, lat, lng) <= radiusKm) {
+      if (_distanceKm(latitude, longitude, lat, lng) <= radiusKm) {
         results.add({...data, 'id': doc.id});
       }
     }
@@ -87,5 +87,17 @@ class MyPhotoService {
     return snapshot.docs
         .map((d) => {...(d.data() as Map<String, dynamic>), 'id': d.id})
         .toList();
+  }
+
+  static double _distanceKm(
+    double lat1, double lng1, double lat2, double lng2,
+  ) {
+    const r = 6371.0;
+    final dLat = (lat2 - lat1) * pi / 180;
+    final dLng = (lng2 - lng1) * pi / 180;
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * pi / 180) * cos(lat2 * pi / 180) *
+            sin(dLng / 2) * sin(dLng / 2);
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 }

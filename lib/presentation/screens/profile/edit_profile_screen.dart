@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/user_repository.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -43,7 +42,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       initialDate: _selectedBirthDate ?? DateTime(now.year - 20),
       firstDate: DateTime(now.year - 80),
       lastDate: DateTime(now.year - 18),
-      helpText: 'Selectează data nașterii',
+      helpText: 'Select birth date',
     );
     if (picked != null) {
       if (!mounted) return;
@@ -65,8 +64,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final user = context.read<UserProvider>().user;
-      final userRepo = context.read<UserRepository>();
+      final userProvider = context.read<UserProvider>();
+      final user = userProvider.user;
       String? imageUrl = user?.photoUrl;
 
       if (_imageFile != null) {
@@ -77,8 +76,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         imageUrl = await ref.getDownloadURL();
       }
 
-      // Actualizează în Firestore
-      await userRepo.updateUserProfile(user!.id, {
+      await userProvider.updateProfile(user!.id, {
         'displayName': _nameController.text,
         'bio': _bioController.text,
         'photoUrl': imageUrl,
@@ -96,7 +94,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Eroare: ${e.toString()}')));
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -115,7 +113,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Editează Profil")),
+      appBar: AppBar(title: const Text("Edit Profile")),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -138,8 +136,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   TextField(
                     controller: _nameController,
                     decoration: const InputDecoration(
-                      labelText: "Nume",
-                      hintText: "Introdu-ți numele",
+                      labelText: "Name",
+                      hintText: "Enter your name",
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -148,18 +146,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     maxLines: 4,
                     decoration: const InputDecoration(
                       labelText: "Bio",
-                      hintText: "Spune-ne ceva despre tine",
+                      hintText: "Tell us something about you",
                     ),
                   ),
                   const SizedBox(height: 16),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.cake_outlined),
-                    title: const Text('Data nașterii'),
+                    title: const Text('Birth date'),
                     subtitle: Text(
                       _selectedBirthDate != null
                           ? '${_selectedBirthDate!.day}.${_selectedBirthDate!.month}.${_selectedBirthDate!.year}'
-                          : 'Neselectată',
+                          : 'Not selected',
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: _pickBirthDate,
@@ -167,7 +165,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _updateProfile,
-                    child: const Text("Salvează"),
+                    child: const Text("Save"),
                   ),
                 ],
               ),

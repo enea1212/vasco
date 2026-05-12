@@ -4,13 +4,13 @@ import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/core/constants/app_colors.dart';
-import 'package:vasco/providers/friends_provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/messaging_repository.dart';
-import 'package:vasco/screens/chat_screen.dart';
-import 'package:vasco/screens/map_page.dart';
-import 'package:vasco/utils/scroll_utils.dart';
-import 'package:vasco/widgets/post_story_viewer.dart';
+import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
+import 'package:vasco/presentation/providers/domain/friends_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
+import 'package:vasco/presentation/screens/chat/chat_screen.dart';
+import 'package:vasco/presentation/screens/map/map_page.dart';
+import 'package:vasco/core/utils/scroll_utils.dart';
+import 'package:vasco/presentation/widgets/story_viewer.dart';
 import 'package:vasco/presentation/screens/profile/edit_profile_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -98,7 +98,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       _userData?['displayName'] as String? ??
       _userData?['display_name'] as String? ??
       widget.initialDisplayName ??
-      'Utilizator';
+      'User';
 
   String? get _photoUrl =>
       _userData?['photoUrl'] as String? ??
@@ -118,13 +118,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         setState(() => _hasPendingRequest = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cerere de prietenie trimisă!')),
+          const SnackBar(content: Text('Friend request sent!')),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Eroare la trimiterea cererii.')),
+          const SnackBar(content: Text('Error sending request.')),
         );
       }
     } finally {
@@ -143,7 +143,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Eroare la anularea cererii.')),
+          const SnackBar(content: Text('Error canceling request.')),
         );
       }
     } finally {
@@ -155,7 +155,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (_friendActionLoading || currentUserId.isEmpty) return;
     setState(() => _friendActionLoading = true);
     try {
-      final convId = await MessagingRepository().getOrCreateConversation(
+      final convId = await context.read<MessageRemoteDatasource>().getOrCreateConversation(
         currentUserId,
         widget.userId,
       );
@@ -176,7 +176,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Eroare la deschiderea chat-ului.')),
+          const SnackBar(content: Text('Error opening chat.')),
         );
       }
     } finally {
@@ -189,11 +189,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Elimini prietenul?'),
+        title: const Text('Remove friend?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Nu'),
+            child: const Text('No'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -201,7 +201,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               foregroundColor: AppColors.surface,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Da'),
+            child: const Text('Yes'),
           ),
         ],
       ),
@@ -216,13 +216,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Prieten eliminat.')));
+        ).showSnackBar(const SnackBar(content: Text('Friend removed.')));
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Eroare.')));
+        ).showSnackBar(const SnackBar(content: Text('Error.')));
       }
     } finally {
       if (mounted) setState(() => _friendActionLoading = false);
@@ -318,7 +318,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Cont privat',
+            'Private account',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,
@@ -327,7 +327,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Adaugă-l ca prieten pentru a-i\nvedea profilul.',
+            'Add them as a friend to\nview their profile.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.textHint,
@@ -450,7 +450,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         color: Colors.white,
                       ),
                       label: const Text(
-                        'Editează profilul',
+                        'Edit profile',
                         style: TextStyle(color: Colors.white),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -510,7 +510,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               context.read<UserProvider>().user?.id ?? '',
                             ),
                             icon: const Icon(Icons.chat_rounded, size: 15),
-                            label: const Text('Mesaj'),
+                            label: const Text('Message'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.surface,
                               foregroundColor: AppColors.primary,
@@ -533,7 +533,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         color: Colors.white,
                       ),
                       label: const Text(
-                        'Cerere trimisă',
+                        'Request sent',
                         style: TextStyle(color: Colors.white),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -551,7 +551,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   : ElevatedButton.icon(
                       onPressed: _sendFriendRequest,
                       icon: const Icon(Icons.person_add_rounded, size: 16),
-                      label: const Text('Adaugă prieten'),
+                      label: const Text('Add friend'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.surface,
                         foregroundColor: AppColors.primary,
@@ -589,7 +589,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 iconColor: AppColors.primary,
                 iconBg: AppColors.primaryMid,
                 value: _loadingUser ? '—' : '$_countriesCount',
-                label: 'Țări',
+                label: 'Countries',
               ),
             ),
           ),
@@ -600,7 +600,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               iconColor: AppColors.greenEmerald,
               iconBg: AppColors.greenLight,
               value: '$photosCount',
-              label: 'Fotografii',
+              label: 'Photos',
             ),
           ),
         ],
@@ -615,7 +615,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Fotografii',
+            'Photos',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -640,7 +640,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Nicio fotografie',
+                    'No photos',
                     style: TextStyle(color: AppColors.textHint),
                   ),
                 ],
@@ -668,10 +668,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PostStoryViewer(
-                        docs: photoDocs.cast<QueryDocumentSnapshot>(),
+                      builder: (_) => StoryViewer(
+                        photos: photoDocs
+                            .map((d) => {'id': d.id, ...(d.data() as Map<String, dynamic>)})
+                            .toList(),
                         initialIndex: index,
-                        collection: 'location_photos',
                       ),
                     ),
                   ),

@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/models/message_model.dart';
-import 'package:vasco/providers/messaging_provider.dart';
-import 'package:vasco/repository/messaging_repository.dart';
-import 'package:vasco/screens/user_profile_screen.dart';
+import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
+import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'widgets/message_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -34,36 +34,40 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  final _repo = MessagingRepository();
 
   List<MessageModel> _messages = [];
-  StreamSubscription<List<MessageModel>>? _msgSub;
+  StreamSubscription<List<Map<String, dynamic>>>? _msgSub;
   bool _sending = false;
 
   @override
   void initState() {
     super.initState();
-    _msgSub = _repo
-        .getMessages(widget.conversationId)
+    final datasource = context.read<MessageRemoteDatasource>();
+    _msgSub = datasource
+        .watchMessages(widget.conversationId)
         .listen(
-          (msgs) {
+          (maps) {
             if (mounted) {
-              setState(() => _messages = msgs);
+              setState(() => _messages = maps.map((m) => MessageModel(
+                id: m['id'] as String? ?? '',
+                senderId: m['senderId'] as String? ?? '',
+                text: m['text'] as String? ?? '',
+                createdAt: (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              )).toList());
               _scrollToBottom();
             }
           },
-          onError: (error, stackTrace) {
+          onError: (error) {
             debugPrint('[ChatScreen] messages stream error: $error');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Nu pot încărca mesajele: $error')),
+                SnackBar(content: Text('Failed to load messages: $error')),
               );
             }
           },
         );
     unawaited(
-      context
-          .read<MessagingProvider>()
+      datasource
           .markAsRead(widget.conversationId, widget.currentUserId)
           .catchError((error) {
             debugPrint('Eroare la marcarea mesajelor ca citite: $error');
@@ -97,12 +101,12 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.clear();
     setState(() => _sending = true);
     try {
-      await _repo.sendMessage(
+      await context.read<MessageRemoteDatasource>().sendMessage(
         widget.conversationId,
         widget.currentUserId,
-        widget.otherUserId,
         text,
         allParticipantIds: widget.groupParticipantIds,
+        otherUserId: widget.otherUserId.isNotEmpty ? widget.otherUserId : null,
       );
     } catch (e) {
       if (!mounted) return;
@@ -111,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
         TextPosition(offset: _controller.text.length),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Nu am putut trimite mesajul: $e')),
+        SnackBar(content: Text('Failed to send message: $e')),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -255,7 +259,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Trimite primul mesaj!',
+            'Send the first message!',
             style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
           ),
         ],
@@ -302,7 +306,7 @@ class _InputBar extends StatelessWidget {
                 maxLines: 5,
                 minLines: 1,
                 decoration: const InputDecoration(
-                  hintText: 'Scrie un mesaj…',
+                  hintText: 'Write a message…',
                   hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(

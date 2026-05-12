@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vasco/models/user_model.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/friends_repository.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
+import 'package:vasco/presentation/providers/domain/friends_provider.dart';
 import 'package:vasco/services/location_groups_service.dart';
 
 class LocationGroupsScreen extends StatefulWidget {
@@ -43,13 +43,13 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
       setState(() => _activeVisibility = previousVisibility);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<void> _showCreateGroupDialog(List<UserModel> friends) async {
+  Future<void> _showCreateGroupDialog(List<UserEntity> friends) async {
     final nameController = TextEditingController();
     final selected = <String>{};
     var isCreating = false;
@@ -58,7 +58,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => AlertDialog(
-          title: const Text('Grup nou'),
+          title: const Text('New group'),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -68,14 +68,14 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Nume grup',
+                    labelText: 'Group name',
                     border: OutlineInputBorder(),
                   ),
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Adaugă prieteni:',
+                  'Add friends:',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
@@ -120,7 +120,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
           actions: [
             TextButton(
               onPressed: isCreating ? null : () => Navigator.pop(ctx),
-              child: const Text('Anulează'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: isCreating
@@ -139,7 +139,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
                         if (!mounted) return;
                         ScaffoldMessenger.of(
                           context,
-                        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
                       } finally {
                         if (ctx.mounted) setInner(() => isCreating = false);
                       }
@@ -150,7 +150,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Crează'),
+                  : const Text('Create'),
             ),
           ],
         ),
@@ -165,17 +165,17 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Șterge grup'),
-        content: Text('Ești sigur că vrei să ștergi grupul "$groupName"?'),
+        title: const Text('Delete group'),
+        content: Text('Are you sure you want to delete the group "$groupName"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Anulează'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Șterge'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -192,7 +192,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -204,7 +204,7 @@ class _LocationGroupsScreenState extends State<LocationGroupsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vizibilitate locație'),
+        title: const Text('Location Visibility'),
         centerTitle: true,
         actions: [
           if (_saving)
@@ -241,7 +241,7 @@ class _Body extends StatelessWidget {
   final String activeVisibility;
   final void Function(String) onVisibilityChanged;
   final void Function(String, String) onDeleteGroup;
-  final void Function(List<UserModel>) onCreateGroup;
+  final void Function(List<UserEntity>) onCreateGroup;
 
   const _Body({
     required this.userId,
@@ -261,16 +261,16 @@ class _Body extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            _SectionHeader('Cu cine îți partajezi locația'),
+            _SectionHeader('Who can see your location'),
             _VisibilityTile(
-              label: 'Toți prietenii',
-              subtitle: 'Toți prietenii tăi îți pot vedea locația',
+              label: 'All friends',
+              subtitle: 'All your friends can see your location',
               icon: Icons.people_rounded,
               selected: activeVisibility == 'all',
               onTap: () => onVisibilityChanged('all'),
             ),
             const Divider(indent: 16, endIndent: 16),
-            _SectionHeader('Grupuri personale'),
+            _SectionHeader('Personal groups'),
             if (groups.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -278,7 +278,7 @@ class _Body extends StatelessWidget {
                   vertical: 12,
                 ),
                 child: Text(
-                  'Niciun grup creat. Apasă + pentru a crea unul.',
+                  'No groups created. Tap + to create one.',
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                 ),
               ),
@@ -388,7 +388,7 @@ class _GroupTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${group.memberIds.length} '
-        '${group.memberIds.length == 1 ? 'prieten' : 'prieteni'}',
+        '${group.memberIds.length == 1 ? 'friend' : 'friends'}',
         style: const TextStyle(fontSize: 12),
       ),
       trailing: Row(
@@ -413,7 +413,7 @@ class _GroupTile extends StatelessWidget {
 
 class _FriendsFab extends StatefulWidget {
   final String userId;
-  final void Function(List<UserModel>) onFriendsFetched;
+  final void Function(List<UserEntity>) onFriendsFetched;
 
   const _FriendsFab({required this.userId, required this.onFriendsFetched});
 
@@ -434,16 +434,14 @@ class _FriendsFabState extends State<_FriendsFab> {
           : () async {
               setState(() => _loading = true);
               try {
-                final friends = await FriendsRepository()
-                    .getFriends(widget.userId)
-                    .first;
+                final friends = context.read<FriendsProvider>().friends;
                 if (!context.mounted) return;
                 widget.onFriendsFetched(friends);
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               } finally {
                 if (mounted) setState(() => _loading = false);
               }

@@ -19,7 +19,7 @@ class PostRepositoryImpl implements IPostRepository {
 
   @override
   Stream<List<PostEntity>> watchFeed(String userId) {
-    return (_datasource.watchFeed(userId)
+    return (_datasource.watchFeed()
             as Stream<List<Map<String, dynamic>>>)
         .map(_mapsToEntities);
   }

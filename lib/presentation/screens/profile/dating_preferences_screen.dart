@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/core/constants/app_colors.dart';
-import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
 
 class DatingPreferencesScreen extends StatefulWidget {
   const DatingPreferencesScreen({super.key});
@@ -23,16 +23,16 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   double _maxDistance = 50;
 
   static const _goals = [
-    ('parties', Icons.celebration_outlined, 'Petreceri'),
-    ('tourism', Icons.photo_camera_outlined, 'Obiective turistice'),
+    ('parties', Icons.celebration_outlined, 'Parties'),
+    ('tourism', Icons.photo_camera_outlined, 'Tourist spots'),
     ('drink_buddy', Icons.local_bar_outlined, 'Drink buddy'),
     ('workout', Icons.fitness_center_outlined, 'Workout / sport'),
-    ('restaurants', Icons.restaurant_outlined, 'Explorat restaurante'),
-    ('concerts', Icons.music_note_outlined, 'Concerte & festivaluri'),
-    ('hiking', Icons.terrain_outlined, 'Hiking & aventuri'),
+    ('restaurants', Icons.restaurant_outlined, 'Restaurant hopping'),
+    ('concerts', Icons.music_note_outlined, 'Concerts & festivals'),
+    ('hiking', Icons.terrain_outlined, 'Hiking & adventures'),
     ('networking', Icons.handshake_outlined, 'Networking'),
     ('movies', Icons.movie_outlined, 'Movie nights'),
-    ('volunteering', Icons.volunteer_activism_outlined, 'Voluntariat'),
+    ('volunteering', Icons.volunteer_activism_outlined, 'Volunteering'),
   ];
 
   @override
@@ -46,11 +46,10 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
     if (user == null) return;
     setState(() {
       _myGender = user.gender;
-      _interestedIn = user.preferences?['interestedIn'];
-      _minAge = (user.preferences?['minAge'] as num?)?.toDouble() ?? 18;
-      _maxAge = (user.preferences?['maxAge'] as num?)?.toDouble() ?? 35;
-      _maxDistance =
-          (user.preferences?['maxDistance'] as num?)?.toDouble() ?? 50;
+      _interestedIn = user.preferenceGender;
+      _minAge = user.preferenceMinAge?.toDouble() ?? 18;
+      _maxAge = user.preferenceMaxAge?.toDouble() ?? 35;
+      _maxDistance = user.preferenceMaxDistance ?? 50;
       final saved = user.interests ?? [];
       _selectedGoals
         ..clear()
@@ -63,7 +62,7 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
     if (_myGender == null || _interestedIn == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selectează genul tău și pe cine vrei să întâlnești.'),
+          content: Text('Please select your gender and who you want to meet.'),
         ),
       );
       return;
@@ -73,28 +72,28 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
         throw Exception(
-          'Sesiunea a expirat. Te rugăm să te autentifici din nou.',
+          'Session expired. Please sign in again.',
         );
       }
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'gender': _myGender,
         'interests': _selectedGoals.toList(),
-        'preferences.interestedIn': _interestedIn,
-        'preferences.minAge': _minAge.round(),
-        'preferences.maxAge': _maxAge.round(),
-        'preferences.maxDistance': _maxDistance.round(),
+        'preferenceGender': _interestedIn,
+        'preferenceMinAge': _minAge.round(),
+        'preferenceMaxAge': _maxAge.round(),
+        'preferenceMaxDistance': _maxDistance.round(),
       });
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Preferințe salvate!')));
+        ).showSnackBar(const SnackBar(content: Text('Preferences saved!')));
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Eroare: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -105,7 +104,7 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Despre Mine'),
+        title: const Text('About Me'),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -117,11 +116,11 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionTitle('Eu sunt'),
+            _sectionTitle('I am'),
             const SizedBox(height: 12),
             _genderRow(),
             const SizedBox(height: 28),
-            _sectionTitle('Vreau să întâlnesc'),
+            _sectionTitle('I want to meet'),
             const SizedBox(height: 12),
             _interestedInRow(),
             const SizedBox(height: 28),
@@ -129,10 +128,10 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
             const SizedBox(height: 28),
             _distanceSection(),
             const SizedBox(height: 28),
-            _sectionTitle('De ce vreau să cunosc lume nouă'),
+            _sectionTitle('Why I want to meet new people'),
             const SizedBox(height: 4),
             const Text(
-              'Poți selecta mai multe',
+              'You can select multiple',
               style: TextStyle(fontSize: 13, color: AppColors.textHint),
             ),
             const SizedBox(height: 12),
@@ -155,7 +154,7 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text(
-                        'Salvează preferințele',
+                        'Save preferences',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -183,9 +182,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   Widget _genderRow() {
     return Row(
       children: [
-        _genderCard('male', Icons.male_rounded, 'Bărbat'),
+        _genderCard('male', Icons.male_rounded, 'Male'),
         const SizedBox(width: 12),
-        _genderCard('female', Icons.female_rounded, 'Femeie'),
+        _genderCard('female', Icons.female_rounded, 'Female'),
       ],
     );
   }
@@ -238,11 +237,11 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
   Widget _interestedInRow() {
     return Row(
       children: [
-        _interestedChip('male', 'Bărbați'),
+        _interestedChip('male', 'Men'),
         const SizedBox(width: 8),
-        _interestedChip('female', 'Femei'),
+        _interestedChip('female', 'Women'),
         const SizedBox(width: 8),
-        _interestedChip('both', 'Oricine'),
+        _interestedChip('both', 'Anyone'),
       ],
     );
   }
@@ -284,9 +283,9 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionTitle('Interval de vârstă'),
+            _sectionTitle('Age range'),
             Text(
-              '${_minAge.round()} – ${_maxAge.round()} ani',
+              '${_minAge.round()} – ${_maxAge.round()} yrs',
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -337,7 +336,7 @@ class _DatingPreferencesScreenState extends State<DatingPreferencesScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionTitle('Distanță maximă'),
+            _sectionTitle('Max distance'),
             Text(
               '$dist km',
               style: const TextStyle(

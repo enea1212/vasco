@@ -1,14 +1,15 @@
 import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'dart:async';
-import 'package:vasco/utils/scroll_utils.dart';
+import 'package:vasco/core/utils/scroll_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vasco/models/message_model.dart';
-import 'package:vasco/models/user_model.dart';
-import 'package:vasco/providers/messaging_provider.dart';
-import 'package:vasco/providers/friends_provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/friends_repository.dart';
+import 'package:vasco/domain/entities/message_entity.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
+import 'package:vasco/domain/repositories/i_user_repository.dart';
+import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
+import 'package:vasco/presentation/providers/domain/messaging_provider.dart';
+import 'package:vasco/presentation/providers/domain/friends_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'chat_screen.dart';
 
 class ConversationsScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     final friends = context.watch<FriendsProvider>().friends;
 
     final filtered = _query.isEmpty
-        ? <UserModel>[]
+        ? <UserEntity>[]
         : friends
               .where(
                 (f) => (f.displayName ?? '').toLowerCase().contains(
@@ -56,7 +57,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               controller: _searchController,
               onChanged: (v) => setState(() => _query = v.trim()),
               decoration: InputDecoration(
-                hintText: 'Caută prieteni…',
+                hintText: 'Search friends…',
                 prefixIcon: const Icon(
                   Icons.search_rounded,
                   color: Color(0xFF9CA3AF),
@@ -102,11 +103,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     );
   }
 
-  Widget _buildSearchResults(List<UserModel> results, String currentUserId) {
+  Widget _buildSearchResults(List<UserEntity> results, String currentUserId) {
     if (results.isEmpty) {
       return const Center(
         child: Text(
-          'Niciun prieten găsit.',
+          'No friend found.',
           style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
         ),
       );
@@ -124,9 +125,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   }
 
   Widget _buildConversationsList(
-    List<ConversationModel> conversations,
+    List<ConversationEntity> conversations,
     String currentUserId,
-    List<UserModel> friends,
+    List<UserEntity> friends,
   ) {
     final validConversations = conversations.where((c) {
       final otherId = c.participantIds.firstWhere(
@@ -176,7 +177,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Text(
-                  'Recente',
+                  'Recent',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -207,7 +208,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               child: Padding(
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
                 child: Text(
-                  'Toți prietenii',
+                  'All friends',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -259,7 +260,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Nicio conversație',
+            'No conversations',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 16,
@@ -268,7 +269,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Caută un prieten și trimite-i un mesaj.',
+            'Search a friend and send them a message.',
             style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
           ),
         ],
@@ -280,7 +281,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 // ─── Tile prieten (pentru search + lista toți) ────────────────────────────────
 
 class _FriendTile extends StatefulWidget {
-  final UserModel friend;
+  final UserEntity friend;
   final String currentUserId;
 
   const _FriendTile({required this.friend, required this.currentUserId});
@@ -317,7 +318,7 @@ class _FriendTileState extends State<_FriendTile> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                widget.friend.displayName ?? 'Utilizator',
+                widget.friend.displayName ?? 'User',
                 style: const TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 15,
@@ -341,8 +342,7 @@ class _FriendTileState extends State<_FriendTile> {
     if (_openingChat) return;
     setState(() => _openingChat = true);
     try {
-      final msgProvider = context.read<MessagingProvider>();
-      final convId = await msgProvider.openChat(
+      final convId = await context.read<MessageRemoteDatasource>().getOrCreateConversation(
         widget.currentUserId,
         widget.friend.id,
       );
@@ -354,7 +354,7 @@ class _FriendTileState extends State<_FriendTile> {
             conversationId: convId,
             currentUserId: widget.currentUserId,
             otherUserId: widget.friend.id,
-            otherUserName: widget.friend.displayName ?? 'Utilizator',
+            otherUserName: widget.friend.displayName ?? 'User',
             otherUserPhoto: widget.friend.photoUrl,
           ),
         ),
@@ -363,7 +363,7 @@ class _FriendTileState extends State<_FriendTile> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Nu pot deschide chat-ul: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to open chat: $e')));
     } finally {
       if (mounted) setState(() => _openingChat = false);
     }
@@ -373,7 +373,7 @@ class _FriendTileState extends State<_FriendTile> {
 // ─── Tile conversație recentă ─────────────────────────────────────────────────
 
 class _ConvTile extends StatefulWidget {
-  final ConversationModel conv;
+  final ConversationEntity conv;
   final String currentUserId;
 
   const _ConvTile({required this.conv, required this.currentUserId});
@@ -383,7 +383,7 @@ class _ConvTile extends StatefulWidget {
 }
 
 class _ConvTileState extends State<_ConvTile> {
-  UserModel? _otherUser;
+  UserEntity? _otherUser;
 
   @override
   void initState() {
@@ -397,7 +397,7 @@ class _ConvTileState extends State<_ConvTile> {
       orElse: () => '',
     );
     if (otherId.isEmpty) return;
-    final user = await FriendsRepository().fetchUser(otherId);
+    final user = await context.read<IUserRepository>().getUser(otherId);
     if (mounted) setState(() => _otherUser = user);
   }
 
@@ -413,14 +413,14 @@ class _ConvTileState extends State<_ConvTile> {
   @override
   Widget build(BuildContext context) {
     final conv = widget.conv;
-    final unread = conv.unreadFor(widget.currentUserId);
+    final unread = conv.unreadCount[widget.currentUserId] ?? 0;
 
     final String name;
     final String? photo;
     final String otherId;
 
     if (conv.isGroup) {
-      name = conv.name ?? 'Grup';
+      name = conv.name ?? 'Group';
       photo = null;
       otherId = '';
     } else {
@@ -543,7 +543,7 @@ class _ConvTileState extends State<_ConvTile> {
                       Expanded(
                         child: Text(
                           conv.lastMessage.isEmpty
-                              ? 'Conversație nouă'
+                              ? 'New conversation'
                               : conv.lastMessage,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

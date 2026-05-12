@@ -100,7 +100,7 @@ class FriendTile extends StatelessWidget {
               itemBuilder: (_) => const [
                 PopupMenuItem(
                   value: 'remove',
-                  child: Text('Elimină prieten'),
+                  child: Text('Remove friend'),
                 ),
               ],
             ),

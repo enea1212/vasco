@@ -14,7 +14,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
-import 'package:vasco/screens/home_screen.dart';
+import 'package:vasco/presentation/screens/home/home_screen.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:provider/provider.dart';
 

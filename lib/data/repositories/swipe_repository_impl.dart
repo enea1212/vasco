@@ -18,7 +18,7 @@ class SwipeRepositoryImpl implements ISwipeRepository {
   Future<List<UserEntity>> getCandidates(String userId) async {
     final maps = await _datasource.getCandidates(userId)
         as List<Map<String, dynamic>>;
-    return maps.map((m) => userModelFromMap(m).toEntity()).toList();
+    return maps.map<UserEntity>((m) => userModelFromMap(m).toEntity()).toList();
   }
 
   @override
@@ -32,7 +32,7 @@ class SwipeRepositoryImpl implements ISwipeRepository {
     return (_datasource.watchMatches(userId)
             as Stream<List<Map<String, dynamic>>>)
         .map((maps) => maps
-            .map((m) => matchModelFromMap(m, m['id'] as String? ?? '').toEntity())
+            .map<MatchEntity>((m) => matchModelFromMap(m, m['id'] as String? ?? '').toEntity())
             .toList());
   }
 }

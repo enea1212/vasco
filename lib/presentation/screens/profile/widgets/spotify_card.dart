@@ -92,10 +92,10 @@ class _SpotifyCardState extends State<SpotifyCard> {
                     ),
                     Text(
                       _isConnected == null
-                          ? 'Se verifică...'
+                          ? 'Checking...'
                           : _isConnected == true
-                          ? 'Conectat — muzica apare la postări'
-                          : 'Conectează pentru a adăuga muzică',
+                          ? 'Connected — music appears on posts'
+                          : 'Connect to add music',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF6B7280),

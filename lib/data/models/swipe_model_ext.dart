@@ -1,4 +1,4 @@
-import '../../tinder_models/swipe_model.dart';
+import '../../models/swipe_model.dart';
 import '../../domain/entities/swipe_entity.dart';
 
 extension SwipeModelToEntity on SwipeModel {

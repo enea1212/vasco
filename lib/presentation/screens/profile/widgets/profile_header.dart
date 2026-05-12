@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:vasco/models/user_model.dart';
-import 'package:vasco/screens/settings_page.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
+import 'package:vasco/presentation/screens/profile/settings_page.dart';
 
-/// Public header widget extracted from ProfileScreen.
-/// Receives [user] and [showBackButton] as parameters — fully stateless.
 class ProfileHeader extends StatelessWidget {
-  final UserModel user;
+  final UserEntity user;
   final bool showBackButton;
 
   const ProfileHeader({
@@ -23,7 +21,7 @@ class ProfileHeader extends StatelessWidget {
               .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
               .take(2)
               .join()
-        : 'TU';
+        : 'ME';
 
     final username =
         '@${(user.displayName ?? 'username').toLowerCase().replaceAll(' ', '_')}';
@@ -41,7 +39,6 @@ class ProfileHeader extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            // Top bar: title + settings (or back + settings)
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 12, 8, 0),
               child: Row(
@@ -60,7 +57,7 @@ class ProfileHeader extends StatelessWidget {
                     const Padding(
                       padding: EdgeInsets.only(left: 16),
                       child: Text(
-                        'Profil',
+                        'Profile',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -86,7 +83,6 @@ class ProfileHeader extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Avatar with double ring
             Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
@@ -121,9 +117,8 @@ class ProfileHeader extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // Name
             Text(
-              user.displayName ?? 'Utilizator',
+              user.displayName ?? 'User',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,

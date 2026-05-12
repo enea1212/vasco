@@ -59,7 +59,7 @@ class LocationRepositoryImpl implements ILocationRepository {
   @override
   Future<void> publishLocation(
       String userId, double lat, double lng) async {
-    await _datasource.publishLocation(userId, lat, lng);
+    await _datasource.publishLocation(userId, lat, lng, 'all');
   }
 
   @override

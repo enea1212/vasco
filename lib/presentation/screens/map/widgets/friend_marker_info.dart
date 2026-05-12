@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vasco/domain/entities/friend_location_entity.dart';
-import 'package:vasco/screens/user_profile_screen.dart';
+import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 
 /// Bottom sheet / popup that displays info about a friend on the map.
 /// Extracted from map_page.dart tap handler logic.
@@ -55,7 +55,7 @@ class FriendMarkerInfo extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      friendData.displayName ?? 'Utilizator',
+                      friendData.displayName ?? 'User',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -72,7 +72,7 @@ class FriendMarkerInfo extends StatelessWidget {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            'Locație activă',
+                            'Active location',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF6B7280),
@@ -97,7 +97,7 @@ class FriendMarkerInfo extends StatelessWidget {
                   );
                 },
                 child: const Text(
-                  'Profil',
+                  'Profile',
                   style: TextStyle(
                     color: Color(0xFF4F46E5),
                     fontWeight: FontWeight.w600,

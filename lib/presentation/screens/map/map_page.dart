@@ -1,15 +1,14 @@
 import 'dart:async';
-
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:vasco/helpers/mapbox_helper.dart';
+import 'package:vasco/core/utils/mapbox_helper.dart';
 import 'package:vasco/services/photo_service.dart';
 import 'package:vasco/presentation/providers/domain/location_provider.dart';
-import 'package:vasco/widgets/story_viewer.dart';
-import 'package:vasco/screens/user_profile_screen.dart';
+import 'package:vasco/presentation/widgets/story_viewer.dart';
+import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -17,8 +16,8 @@ import 'package:geolocator/geolocator.dart' as geo;
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:vasco/models/user_model.dart';
-import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'package:vasco/domain/entities/friend_location_entity.dart';
 
 class MapPage extends StatefulWidget {
@@ -50,9 +49,12 @@ class _MapPageState extends State<MapPage> {
   final Map<String, Point> _friendMapPoints = {};
   StreamSubscription<DocumentSnapshot>? _userDocSub;
   LocationProvider? _locationProvider;
-  UserModel? _currentUser;
+  UserEntity? _currentUser;
 
   final Completer<void> _mapReadyCompleter = Completer<void>();
+
+  bool _controlsVisible = true;
+  Timer? _hideTimer;
 
   @override
   void initState() {
@@ -77,9 +79,19 @@ class _MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     _locationProvider?.removeListener(_onLocationsChanged);
     _userDocSub?.cancel();
     super.dispose();
+  }
+
+  void _showControls() {
+    if (!mounted) return;
+    _hideTimer?.cancel();
+    if (!_controlsVisible) setState(() => _controlsVisible = true);
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _controlsVisible = false);
+    });
   }
 
   Future<void> _bootstrap() async {
@@ -604,6 +616,8 @@ class _MapPageState extends State<MapPage> {
 
     if (!_mapReadyCompleter.isCompleted) _mapReadyCompleter.complete();
 
+    _showControls();
+
     await MapboxHelper.initFeatureState(mapboxMap);
 
     await mapboxMap.flyTo(
@@ -648,7 +662,7 @@ class _MapPageState extends State<MapPage> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'Se încarcă harta...',
+                    'Loading map...',
                     style: TextStyle(
                       color: Color(0xFF6B7280),
                       fontSize: 15,
@@ -669,44 +683,53 @@ class _MapPageState extends State<MapPage> {
             )
           : Stack(
               children: [
-                MapWidget(
-                  styleUri: "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
-                  gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                    Factory<OneSequenceGestureRecognizer>(
-                      () => EagerGestureRecognizer(),
-                    ),
-                  },
-                  onMapCreated: _onMapCreated,
+                Listener(
+                  onPointerDown: (_) => _showControls(),
+                  behavior: HitTestBehavior.translucent,
+                  child: MapWidget(
+                    styleUri:
+                        "mapbox://styles/eneawss/cmnw92pjy000p01s78vso81m0",
+                    gestureRecognizers:
+                        <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<OneSequenceGestureRecognizer>(
+                        () => EagerGestureRecognizer(),
+                      ),
+                    },
+                    onMapCreated: _onMapCreated,
+                  ),
                 ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 12,
-                  left: 16,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
+                // Back button (always visible, top-left)
+                if (widget.userId != null)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 12,
+                    left: 16,
+                    child: _mapButton(
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios_rounded,
+                          size: 20,
+                          color: Color(0xFF111827),
                         ),
-                      ],
+                        onPressed: () => Navigator.pop(context),
+                      ),
                     ),
-                    child: widget.userId != null
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back_ios_rounded,
-                              size: 20,
-                              color: Color(0xFF111827),
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          )
-                        : IconButton(
+                  ),
+                // Heatmap toggle (top-right, auto-hide)
+                if (widget.userId == null)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 12,
+                    right: 16,
+                    child: AnimatedOpacity(
+                      opacity: _controlsVisible ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: IgnorePointer(
+                        ignoring: !_controlsVisible,
+                        child: _mapButton(
+                          child: IconButton(
                             icon: Icon(
                               _heatmapVisible
-                                  ? Icons.layers
-                                  : Icons.layers_clear,
+                                  ? Icons.photo_camera_rounded
+                                  : Icons.no_photography_rounded,
                               size: 22,
                               color: _heatmapVisible
                                   ? const Color(0xFF4F46E5)
@@ -714,10 +737,25 @@ class _MapPageState extends State<MapPage> {
                             ),
                             onPressed: _toggleHeatmapVisibility,
                           ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
+    );
+  }
+
+  Widget _mapButton({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+        ],
+      ),
+      child: child,
     );
   }
 
@@ -756,7 +794,7 @@ class _MapPageState extends State<MapPage> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Permisiuni necesare',
+                'Required Permissions',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -765,7 +803,7 @@ class _MapPageState extends State<MapPage> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Pentru a folosi harta avem nevoie de câteva permisiuni.',
+                'To use the map, we need a few permissions.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
               ),
@@ -774,16 +812,16 @@ class _MapPageState extends State<MapPage> {
                 Icons.location_on_rounded,
                 const Color(0xFFEEF2FF),
                 const Color(0xFF4F46E5),
-                'Locație',
-                'Îți afișăm poziția pe hartă și o partajăm în timp real.',
+                'Location',
+                'We display your position on the map and share it in real time.',
               ),
               const SizedBox(height: 12),
               _permissionRow(
                 Icons.people_rounded,
                 const Color(0xFFF0FDF4),
                 const Color(0xFF16A34A),
-                'Prieteni',
-                'Locația ta va fi vizibilă prietenilor tăi pe hartă.',
+                'Friends',
+                'Your location will be visible to your friends on the map.',
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -800,7 +838,7 @@ class _MapPageState extends State<MapPage> {
                     elevation: 0,
                   ),
                   child: const Text(
-                    'Permite',
+                    'Allow',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                 ),

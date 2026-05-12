@@ -46,7 +46,7 @@ class CustomBottomNavBar extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Stânga — 3 iteme, fiecare cu spațiu egal
+                  // Left — 3 items, equal spacing
                   Expanded(
                     flex: 4,
                     child: Row(
@@ -57,7 +57,7 @@ class CustomBottomNavBar extends StatelessWidget {
                         Expanded(
                           child: _buildNavItem(
                             Icons.people_rounded,
-                            'Prieteni',
+                            'Friends',
                             1,
                             hasBadge: true,
                           ),
@@ -65,36 +65,36 @@ class CustomBottomNavBar extends StatelessWidget {
                         Expanded(
                           child: _buildNavItem(
                             Icons.chat_bubble_rounded,
-                            'Mesaje',
+                            'Messages',
                             2,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // Spațiu rezervat pentru butonul central flotant
+                  // Space reserved for floating center button
                   const SizedBox(width: 64),
-                  // Dreapta — 3 iteme, fiecare cu spațiu egal
+                  // Right — 3 items, equal spacing
                   Expanded(
                     flex: 4,
                     child: Row(
                       children: [
                         Expanded(
-                          child: _buildNavItem(Icons.map_rounded, 'Mapa', 4),
-                        ),
-                        Expanded(
-                          child: _buildNavItem(
-                            Icons.person_rounded,
-                            'Profil',
-                            5,
-                            hasBadge: true,
-                          ),
+                          child: _buildNavItem(Icons.map_rounded, 'Map', 4),
                         ),
                         Expanded(
                           child: _buildNavItem(
                             Icons.local_fire_department_rounded,
                             'Match',
+                            5,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildNavItem(
+                            Icons.person_rounded,
+                            'Profile',
                             6,
+                            hasBadge: true,
                           ),
                         ),
                       ],

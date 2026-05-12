@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/core/constants/app_sizes.dart';
-import 'package:vasco/providers/friend_location_provider.dart';
-import 'package:vasco/providers/user_provider.dart';
+import 'package:vasco/presentation/providers/domain/location_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'package:vasco/services/auth_service.dart';
 import 'package:vasco/services/location_groups_service.dart';
 import 'package:vasco/presentation/screens/profile/edit_profile_screen.dart';
@@ -57,7 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await LocationGroupsService.setVisibility(uid, newVisibility);
       if (mounted) {
         await context
-            .read<FriendLocationProvider>()
+            .read<LocationProvider>()
             .updateVisibility(uid, newVisibility);
       }
     } catch (e) {
@@ -95,7 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Setări'),
+        title: const Text('Settings'),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -132,7 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user.displayName ?? 'Utilizator',
+                          user.displayName ?? 'User',
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
@@ -156,13 +156,13 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
 
           // ── Section: PROFIL ────────────────────────────────────────────────
-          const SectionLabel('Profil'),
+          const SectionLabel('Profile'),
           const SizedBox(height: AppSizes.spacingSm),
           SettingsTile(
             icon: Icons.edit_rounded,
             iconBackground: AppColors.primaryMid,
             iconColor: AppColors.primary,
-            label: 'Editează profilul',
+            label: 'Edit profile',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const EditProfileScreen()),
@@ -173,7 +173,7 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.favorite_outline_rounded,
             iconBackground: AppColors.roseLi,
             iconColor: AppColors.rose,
-            label: 'Interesele Mele',
+            label: 'My Interests',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -184,7 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: AppSizes.spacingXxl),
 
           // ── Section: CONFIDENȚIALITATE ─────────────────────────────────────
-          const SectionLabel('Confidențialitate'),
+          const SectionLabel('Privacy'),
           const SizedBox(height: AppSizes.spacingSm),
 
           // Location visibility toggle
@@ -226,7 +226,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Vizibilitate locație',
+                          'Location visibility',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -235,8 +235,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         Text(
                           _locationSharing == true
-                              ? 'Locația ta e vizibilă prietenilor'
-                              : 'Locația ta e ascunsă',
+                              ? 'Your location is visible to friends'
+                              : 'Your location is hidden',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textHint,
@@ -308,7 +308,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Cont privat',
+                          'Private account',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -317,8 +317,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         Text(
                           user.isPrivate
-                              ? 'Doar prietenii îți pot vedea profilul'
-                              : 'Oricine îți poate vedea profilul',
+                              ? 'Only friends can see your profile'
+                              : 'Anyone can see your profile',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textHint,
@@ -352,13 +352,13 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: AppSizes.spacingXxl),
 
           // ── Section: ALTELE ────────────────────────────────────────────────
-          const SectionLabel('Altele'),
+          const SectionLabel('Other'),
           const SizedBox(height: AppSizes.spacingSm),
           SettingsTile(
             icon: Icons.logout_rounded,
             iconBackground: AppColors.dangerLight,
             iconColor: AppColors.danger,
-            label: 'Deconectare',
+            label: 'Sign out',
             labelColor: AppColors.danger,
             showArrow: false,
             onTap: () => _confirmLogout(context, authService),
@@ -398,7 +398,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: AppSizes.spacingLg),
                 const Text(
-                  'Deconectare',
+                  'Sign out',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -407,7 +407,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: AppSizes.spacingXs),
                 const Text(
-                  'Ești sigur că vrei să te deconectezi?',
+                  'Are you sure you want to sign out?',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.textMuted,
@@ -432,7 +432,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: const Text(
-                          'Anulează',
+                          'Cancel',
                           style: TextStyle(color: AppColors.textSecondary),
                         ),
                       ),
@@ -453,7 +453,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 } catch (e) {
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(content: Text('Eroare: $e')),
+                                      SnackBar(content: Text('Error: $e')),
                                     );
                                     setDialogState(
                                       () => isSigningOut = false,
@@ -481,7 +481,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Deconectează'),
+                            : const Text('Sign out'),
                       ),
                     ),
                   ],

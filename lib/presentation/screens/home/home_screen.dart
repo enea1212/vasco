@@ -2,30 +2,30 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
-import 'package:vasco/utils/scroll_utils.dart';
+import 'package:vasco/core/utils/scroll_utils.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:vasco/helpers/mapbox_helper.dart';
+import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
+import 'package:vasco/domain/entities/user_entity.dart';
 import 'package:vasco/models/user_model.dart';
-import 'package:vasco/providers/feed_cache_provider.dart';
-import 'package:vasco/providers/friends_provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/repository/messaging_repository.dart';
-import 'package:vasco/screens/profile_page.dart';
-import 'package:vasco/screens/conversations_screen.dart';
-import 'package:vasco/screens/map_page.dart';
-import 'package:vasco/screens/swipe_screen.dart';
+import 'package:vasco/presentation/providers/domain/friends_provider.dart';
+import 'package:vasco/presentation/providers/domain/user_provider.dart';
+import 'package:vasco/presentation/screens/profile/profile_page.dart';
+import 'package:vasco/presentation/screens/chat/conversations_screen.dart';
+import 'package:vasco/presentation/screens/map/map_page.dart';
+import 'package:vasco/presentation/screens/swipe/swipe_screen.dart';
 import 'package:vasco/services/photo_service.dart';
 import 'package:vasco/services/geocoding_service.dart';
 import 'package:vasco/services/spotify_service.dart';
 import 'package:vasco/core/constants/app_colors.dart';
+import 'package:vasco/presentation/providers/domain/friends_feed_provider.dart';
 import 'package:vasco/presentation/screens/friends/friends_page.dart';
 import 'package:vasco/presentation/widgets/custom_bottom_nav_bar.dart';
 import 'widgets/post_card.dart';
-import 'widgets/story_row.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,8 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
       const ConversationsScreen(), // 2 - Mesaje
       Container(), // 3 - Share (buton central)
       MapPage(), // 4 - Map
-      const ProfileScreen(), // 5 - Profile
-      SwipeScreen(), // Index 6
+      SwipeScreen(), // 5 - Match
+      const ProfileScreen(), // 6 - Profile
     ];
   }
 
@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      appBar: (_selectedIndex == 5 || _selectedIndex == 0)
+      appBar: (_selectedIndex == 6 || _selectedIndex == 0)
           ? null
           : AppBar(
               title: const Row(
@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _showCreateGroupDialog(
     BuildContext context,
-    List<UserModel> friends,
+    List<UserEntity> friends,
   ) async {
     final currentUserId = context.read<UserProvider>().user?.id ?? '';
     final nameController = TextEditingController();
@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => AlertDialog(
-          title: const Text('Grup nou'),
+          title: const Text('New Group'),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -139,14 +139,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Nume grup',
+                    labelText: 'Group name',
                     border: OutlineInputBorder(),
                   ),
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Adaugă prieteni:',
+                  'Add friends:',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
@@ -154,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                      'Nu ai prieteni de adăugat.',
+                      'No friends to add.',
                       style: TextStyle(color: AppColors.textHint, fontSize: 13),
                     ),
                   )
@@ -200,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: isCreating ? null : () => Navigator.pop(ctx),
-              child: const Text('Anulează'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: isCreating
@@ -210,23 +210,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (name.isEmpty) return;
                       setInner(() => isCreating = true);
                       try {
-                        await MessagingRepository().createGroupConversation(
-                          currentUserId,
-                          selected.toList(),
-                          name,
-                        );
+                        await context
+                            .read<MessageRemoteDatasource>()
+                            .createGroupConversation(
+                              currentUserId,
+                              selected.toList(),
+                              name,
+                            );
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Grup creat cu succes!'),
+                              content: Text('Group created successfully!'),
                             ),
                           );
                         }
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Eroare: $e')),
+                            SnackBar(content: Text('Error: $e')),
                           );
                         }
                       } finally {
@@ -239,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Crează'),
+                  : const Text('Create'),
             ),
           ],
         ),
@@ -249,8 +251,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _shareLocation(BuildContext context) async {
     if (_isSharingLocation) return;
-    final userModel = context.read<UserProvider>().user;
-    if (userModel == null) return;
+    final userEntity = context.read<UserProvider>().user;
+    if (userEntity == null) return;
 
     setState(() => _isSharingLocation = true);
     try {
@@ -258,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!await geo.Geolocator.isLocationServiceEnabled()) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Activează locația în setări.')),
+            const SnackBar(content: Text('Please enable location services.')),
           );
         }
         return;
@@ -311,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Adaugă o poză',
+                  'Add a photo',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -320,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Alege sursa fotografiei',
+                  'Choose photo source',
                   style: TextStyle(color: AppColors.textMuted, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
@@ -330,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _dialogOption(
                         ctx,
                         Icons.camera_alt_rounded,
-                        'Cameră',
+                        'Camera',
                         'camera',
                       ),
                     ),
@@ -339,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: _dialogOption(
                         ctx,
                         Icons.photo_library_rounded,
-                        'Galerie',
+                        'Gallery',
                         'gallery',
                       ),
                     ),
@@ -369,12 +371,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'assets/custom.geo.json',
       );
       final geoJsonData = json.decode(geoJsonString) as Map<String, dynamic>;
-      final detected = MapboxHelper.detectCountry(
-        pos.latitude,
-        pos.longitude,
-        geoJsonData,
-      );
-      final countryName = detected?['value'];
+      // Country detection: attempt point-in-polygon lookup
+      Map<String, dynamic>? detected;
+      try {
+        detected = _detectCountry(pos.latitude, pos.longitude, geoJsonData);
+      } catch (_) {
+        detected = null;
+      }
+      final countryName = detected?['value'] as String?;
 
       // 4. Reverse geocoding → "Oraș, Țară"
       final locationName = await GeocodingService.reverseGeocode(
@@ -384,15 +388,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Se încarcă poza...')),
+          const SnackBar(content: Text('Uploading photo...')),
         );
       }
 
       // 5. Upload foto cu locația completă
       await MyPhotoService.uploadPhoto(
-        userId: userModel.id,
-        displayName: userModel.displayName ?? 'Unknown',
-        userPhotoUrl: userModel.photoUrl,
+        userId: userEntity.id,
+        displayName: userEntity.displayName ?? 'Unknown',
+        userPhotoUrl: userEntity.photoUrl,
         latitude: pos.latitude,
         longitude: pos.longitude,
         imageFile: File(pickedFile.path),
@@ -407,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (detected != null) {
         await FirebaseFirestore.instance
             .collection('users')
-            .doc(userModel.id)
+            .doc(userEntity.id)
             .set({
               'shared_countries': FieldValue.arrayUnion([detected]),
             }, SetOptions(merge: true));
@@ -418,8 +422,8 @@ class _HomeScreenState extends State<HomeScreen> {
           SnackBar(
             content: Text(
               detected != null
-                  ? 'Locație înregistrată în ${detected['value']}!'
-                  : 'Locație înregistrată!',
+                  ? 'Location saved in ${detected['value']}!'
+                  : 'Location saved!',
             ),
           ),
         );
@@ -428,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Eroare la postare: $e'),
+            content: Text('Error posting: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -436,6 +440,56 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _isSharingLocation = false);
     }
+  }
+
+  /// Simple GeoJSON point-in-polygon country detection.
+  Map<String, dynamic>? _detectCountry(
+    double lat,
+    double lng,
+    Map<String, dynamic> geoJson,
+  ) {
+    final features = geoJson['features'] as List?;
+    if (features == null) return null;
+    for (final feature in features) {
+      final props = (feature as Map)['properties'] as Map?;
+      final geometry = feature['geometry'] as Map?;
+      if (props == null || geometry == null) continue;
+      if (_pointInFeature(lat, lng, geometry)) {
+        final name = props['name'] ?? props['NAME'] ?? props['ADMIN'];
+        if (name != null) return {'value': name.toString()};
+      }
+    }
+    return null;
+  }
+
+  bool _pointInFeature(double lat, double lng, Map geometry) {
+    final type = geometry['type'] as String?;
+    final coords = geometry['coordinates'];
+    if (coords == null) return false;
+    if (type == 'Polygon') {
+      return _pointInPolygon(lat, lng, coords[0] as List);
+    } else if (type == 'MultiPolygon') {
+      for (final poly in coords as List) {
+        if (_pointInPolygon(lat, lng, (poly as List)[0] as List)) return true;
+      }
+    }
+    return false;
+  }
+
+  bool _pointInPolygon(double lat, double lng, List ring) {
+    bool inside = false;
+    int j = ring.length - 1;
+    for (int i = 0; i < ring.length; j = i++) {
+      final xi = (ring[i] as List)[0] as num;
+      final yi = (ring[i] as List)[1] as num;
+      final xj = (ring[j] as List)[0] as num;
+      final yj = (ring[j] as List)[1] as num;
+      if (((yi > lat) != (yj > lat)) &&
+          (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    return inside;
   }
 
   Widget _dialogOption(
@@ -470,28 +524,79 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ─── Feed Instagram-style ─────────────────────────────────────────────────────
+// ─── Feed cu două tab-uri: Friends / Friends of Friends ──────────────────────
 
-class _FeedPage extends StatelessWidget {
+class _FeedPage extends StatefulWidget {
   const _FeedPage();
 
-  Future<void> _refreshFeed(BuildContext context) {
-    final refresh = context.read<FeedCacheProvider>().refresh();
-    return Future.any([
-      refresh,
-      Future<void>.delayed(const Duration(seconds: 5)),
-    ]);
+  @override
+  State<_FeedPage> createState() => _FeedPageState();
+}
+
+class _FeedPageState extends State<_FeedPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  List<String>? _lastFriendIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<FriendsProvider>().addListener(_onFriendsChanged);
+      // Handle case where FriendsProvider already has data (e.g. returning to tab)
+      _onFriendsChanged();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    try {
+      context.read<FriendsProvider>().removeListener(_onFriendsChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onFriendsChanged() {
+    if (!mounted) return;
+    final fp = context.read<FriendsProvider>();
+    // Wait until FriendsProvider has received the first Firestore batch
+    if (!fp.initialLoadComplete) return;
+    final ids = fp.friends.map((f) => f.id).toList();
+    if (listEquals(_lastFriendIds, ids)) return;
+    _lastFriendIds = ids;
+    _initFeeds();
+  }
+
+  Future<void> _initFeeds() async {
+    if (!mounted) return;
+    final userId = context.read<UserProvider>().user?.id;
+    if (userId == null) return;
+    final friendIds = _lastFriendIds ?? [];
+    await context.read<FriendsFeedProvider>().initForUser(userId, friendIds);
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = context.watch<UserProvider>().user;
-    final friends = context.watch<FriendsProvider>().friends;
-    final feed = context.watch<FeedCacheProvider>();
+    final friendsProvider = context.watch<FriendsProvider>();
+    final friendsReady = friendsProvider.initialLoadComplete;
+    final feed = context.watch<FriendsFeedProvider>();
+
+    final currentUserModel = currentUser == null
+        ? null
+        : UserModel(
+            id: currentUser.id,
+            email: currentUser.email,
+            displayName: currentUser.displayName,
+            photoUrl: currentUser.photoUrl,
+          );
 
     return Column(
       children: [
-        // ── AppBar fix ────────────────────────────────────────────────────
+        // ── Header ───────────────────────────────────────────────────────
         Material(
           color: AppColors.surface,
           elevation: 0,
@@ -518,19 +623,13 @@ class _FeedPage extends StatelessWidget {
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(
-                            Icons.favorite_border_rounded,
-                            color: AppColors.textPrimary,
-                            size: 26,
-                          ),
+                          icon: const Icon(Icons.favorite_border_rounded,
+                              color: AppColors.textPrimary, size: 26),
                           onPressed: () {},
                         ),
                         IconButton(
-                          icon: const Icon(
-                            Icons.send_outlined,
-                            color: AppColors.textPrimary,
-                            size: 24,
-                          ),
+                          icon: const Icon(Icons.send_outlined,
+                              color: AppColors.textPrimary, size: 24),
                           onPressed: () {},
                         ),
                         const SizedBox(width: 4),
@@ -539,123 +638,153 @@ class _FeedPage extends StatelessWidget {
                   ),
                 ),
               ),
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Friends'),
+                  Tab(text: 'Friends of Friends'),
+                ],
+                labelStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700),
+                unselectedLabelStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+                labelColor: AppColors.primary,
+                unselectedLabelColor: AppColors.textHint,
+                indicatorColor: AppColors.primary,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+              ),
               const Divider(height: 0.5, thickness: 0.5),
             ],
           ),
         ),
 
-        // ── Feed scrollabil cu pull-to-refresh ────────────────────────────
+        // ── Tab content ───────────────────────────────────────────────────
         Expanded(
-          child: Builder(
-            builder: (context) {
-              final posts = feed.posts;
-              final isInitialLoading = feed.isInitialLoading;
-
-              return ScrollConfiguration(
-                behavior: const NoGlowScrollBehavior(),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
-                  ),
-                  slivers: [
-                    CupertinoSliverRefreshControl(
-                      onRefresh: () => _refreshFeed(context),
-                      refreshTriggerPullDistance: 36,
-                      refreshIndicatorExtent: 30,
-                      builder: buildPullRefreshIndicator,
-                    ),
-                    SliverToBoxAdapter(
-                      child: StoriesRow(
-                        currentUser: currentUser,
-                        friends: friends,
-                      ),
-                    ),
-
-                    const SliverToBoxAdapter(
-                      child: Divider(height: 0.5, thickness: 0.5),
-                    ),
-
-                    if (isInitialLoading)
-                      const SliverFillRemaining(
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      )
-                    else if (posts.isEmpty)
-                      SliverFillRemaining(
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceAlt,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  Icons.photo_camera_outlined,
-                                  size: 36,
-                                  color: AppColors.textHint,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Nicio postare încă',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Apasă butonul central pentru a posta.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppColors.textHint,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else ...[
-                      if (feed.error != null)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                            child: Text(
-                              'Se afișează cache-ul local momentan.',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                      SliverList(
-                        delegate: SliverChildBuilderDelegate((ctx, i) {
-                          final post = posts[i];
-                          final docId = post['id'] as String? ?? '';
-                          return PostCard(docId: docId, data: post);
-                        }, childCount: posts.length),
-                      ),
-                    ],
-
-                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                  ],
-                ),
-              );
-            },
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _PostsFeed(
+                posts: feed.friendsFeed,
+                isLoading: !friendsReady || feed.friendsLoading,
+                currentUserModel: currentUserModel,
+                onRefresh: _initFeeds,
+                emptyTitle: 'No posts from friends',
+                emptySubtitle: 'When your friends post, they\'ll appear here.',
+              ),
+              _PostsFeed(
+                posts: feed.fofFeed,
+                isLoading: !friendsReady || feed.fofLoading,
+                currentUserModel: currentUserModel,
+                onRefresh: _initFeeds,
+                emptyTitle: 'No posts yet',
+                emptySubtitle:
+                    'Posts from people your friends know will appear here.',
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Shared post list widget ─────────────────────────────────────────────────
+
+class _PostsFeed extends StatelessWidget {
+  final List<Map<String, dynamic>> posts;
+  final bool isLoading;
+  final UserModel? currentUserModel;
+  final Future<void> Function() onRefresh;
+  final String emptyTitle;
+  final String emptySubtitle;
+
+  const _PostsFeed({
+    required this.posts,
+    required this.isLoading,
+    required this.currentUserModel,
+    required this.onRefresh,
+    required this.emptyTitle,
+    required this.emptySubtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && posts.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+            color: AppColors.primary, strokeWidth: 2),
+      );
+    }
+
+    return ScrollConfiguration(
+      behavior: const NoGlowScrollBehavior(),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: CappedBouncingScrollPhysics(maxOverscroll: 48),
+        ),
+        slivers: [
+          CupertinoSliverRefreshControl(
+            onRefresh: onRefresh,
+            refreshTriggerPullDistance: 36,
+            refreshIndicatorExtent: 30,
+            builder: buildPullRefreshIndicator,
+          ),
+          if (posts.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAlt,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(Icons.photo_camera_outlined,
+                          size: 36, color: AppColors.textHint),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      emptyTitle,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      emptySubtitle,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: AppColors.textHint, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) {
+                  final data = posts[i];
+                  final docId = data['id'] as String? ?? '';
+                  return PostCard(
+                    key: ValueKey(docId),
+                    docId: docId,
+                    data: data,
+                    currentUserId: currentUserModel?.id ?? '',
+                  );
+                },
+                childCount: posts.length,
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
+      ),
     );
   }
 }

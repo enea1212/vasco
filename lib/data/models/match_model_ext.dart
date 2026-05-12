@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../tinder_models/match_model.dart';
+import '../../models/match_model.dart';
 import '../../domain/entities/match_entity.dart';
 
 extension MatchModelToEntity on MatchModel {

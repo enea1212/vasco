@@ -3,12 +3,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:vasco/providers/user_provider.dart';
-import 'package:vasco/screens/profile_page.dart';
-import 'package:vasco/screens/user_profile_screen.dart';
+import 'package:vasco/presentation/screens/profile/profile_page.dart';
+import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'package:vasco/services/geocoding_service.dart';
-import 'package:vasco/widgets/comments_sheet.dart';
+import 'package:vasco/presentation/widgets/comments_sheet.dart';
 import 'package:vasco/core/constants/app_colors.dart';
 
 // ─── Card individual cu geocoding lazy + cache ────────────────────────────────
@@ -16,8 +14,14 @@ import 'package:vasco/core/constants/app_colors.dart';
 class PostCard extends StatefulWidget {
   final String docId;
   final Map<String, dynamic> data;
+  final String currentUserId;
 
-  const PostCard({super.key, required this.docId, required this.data});
+  const PostCard({
+    super.key,
+    required this.docId,
+    required this.data,
+    required this.currentUserId,
+  });
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -27,11 +31,20 @@ class _PostCardState extends State<PostCard> {
   static final Map<String, String> _geoCache = {};
   String? _locationLabel;
   bool _isLiking = false;
+  Stream<DocumentSnapshot>? _likeStream;
 
   @override
   void initState() {
     super.initState();
     _resolveLocation();
+    if (widget.currentUserId.isNotEmpty) {
+      _likeStream = FirebaseFirestore.instance
+          .collection('location_photos')
+          .doc(widget.docId)
+          .collection('likes')
+          .doc(widget.currentUserId)
+          .snapshots();
+    }
   }
 
   Future<void> _resolveLocation() async {
@@ -44,7 +57,7 @@ class _PostCardState extends State<PostCard> {
     final lat = (d['latitude'] as num?)?.toDouble();
     final lng = (d['longitude'] as num?)?.toDouble();
     if (lat == null || lng == null) {
-      if (mounted) setState(() => _locationLabel = 'Locație');
+      if (mounted) setState(() => _locationLabel = 'Location');
       return;
     }
     final key = '${lat.toStringAsFixed(3)}_${lng.toStringAsFixed(3)}';
@@ -53,7 +66,7 @@ class _PostCardState extends State<PostCard> {
       return;
     }
     final result = await GeocodingService.reverseGeocode(lat, lng);
-    final label = result ?? 'Locație';
+    final label = result ?? 'Location';
     _geoCache[key] = label;
     if (mounted) setState(() => _locationLabel = label);
   }
@@ -101,7 +114,7 @@ class _PostCardState extends State<PostCard> {
         final u = userSnap.data() as Map<String, dynamic>;
         result.add({
           'userId': likeDoc.id,
-          'displayName': u['displayName'] ?? u['display_name'] ?? 'Utilizator',
+          'displayName': u['displayName'] ?? u['display_name'] ?? 'User',
           'photoUrl': u['photoUrl'] ?? u['photo_url'],
         });
       }
@@ -139,7 +152,7 @@ class _PostCardState extends State<PostCard> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Aprecieri',
+                    'Likes',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -161,7 +174,7 @@ class _PostCardState extends State<PostCard> {
                     if (likers.isEmpty) {
                       return const Center(
                         child: Text(
-                          'Nicio apreciere încă.',
+                          'No likes yet.',
                           style: TextStyle(color: AppColors.textHint),
                         ),
                       );
@@ -176,7 +189,7 @@ class _PostCardState extends State<PostCard> {
                         final liker = likers[i];
                         final photo = liker['photoUrl'] as String?;
                         final name =
-                            liker['displayName'] as String? ?? 'Utilizator';
+                            liker['displayName'] as String? ?? 'User';
                         final likerId = liker['userId'] as String? ?? '';
                         return GestureDetector(
                           onTap: likerId.isNotEmpty
@@ -250,22 +263,22 @@ class _PostCardState extends State<PostCard> {
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
     final diff = DateTime.now().difference(ts.toDate());
-    if (diff.inMinutes < 60) return 'acum ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'acum ${diff.inHours}h';
-    if (diff.inDays < 7) return 'acum ${diff.inDays}z';
-    return 'acum ${diff.inDays ~/ 7} săpt';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${diff.inDays ~/ 7}w ago';
   }
 
   @override
   Widget build(BuildContext context) {
     final d = widget.data;
     final imageUrl = d['imageUrl'] as String? ?? '';
-    final displayName = d['displayName'] as String? ?? 'Utilizator';
+    final displayName = d['displayName'] as String? ?? 'User';
     final userPhotoUrl = d['userPhotoUrl'] as String? ?? '';
     final createdAt = d['createdAt'] as Timestamp?;
     final locationLabel = _locationLabel;
     final timeLabel = _timeAgo(createdAt);
-    final currentUserId = context.watch<UserProvider>().user?.id ?? '';
+    final currentUserId = widget.currentUserId;
     final postUserId = d['userId'] as String? ?? '';
     final spotifySong = d['spotifySong'] as String?;
     final spotifyArtist = d['spotifyArtist'] as String? ?? '';
@@ -412,12 +425,7 @@ class _PostCardState extends State<PostCard> {
 
         // ── Acțiuni + statistici ───────────────────────────────────────────
         StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('location_photos')
-              .doc(widget.docId)
-              .collection('likes')
-              .doc(currentUserId)
-              .snapshots(),
+          stream: _likeStream,
           builder: (_, likeSnap) {
             final isLiked = likeSnap.data?.exists ?? false;
             final likesCount = (d['likesCount'] as num?)?.toInt() ?? 0;
@@ -479,7 +487,7 @@ class _PostCardState extends State<PostCard> {
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                       child: Text(
-                        '$likesCount aprecieri',
+                        '$likesCount likes',
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
@@ -496,7 +504,7 @@ class _PostCardState extends State<PostCard> {
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 3, 12, 0),
                       child: Text(
-                        'Vizualizați toate cele $commentsCount comentarii',
+                        'View all $commentsCount comments',
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.textHint,
@@ -548,23 +556,20 @@ class _CachedBlurImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width.toInt();
     return AspectRatio(
       aspectRatio: 1,
       child: CachedNetworkImage(
         imageUrl: imageUrl,
         fit: BoxFit.cover,
-        fadeInDuration: const Duration(milliseconds: 260),
-        fadeOutDuration: const Duration(milliseconds: 120),
-        placeholderFadeInDuration: const Duration(milliseconds: 120),
-        imageBuilder: (context, imageProvider) => AnimatedSwitcher(
-          duration: const Duration(milliseconds: 260),
-          child: Image(
-            key: ValueKey(imageUrl),
-            image: imageProvider,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-          ),
+        memCacheWidth: w,
+        fadeInDuration: const Duration(milliseconds: 200),
+        fadeOutDuration: const Duration(milliseconds: 100),
+        imageBuilder: (context, imageProvider) => Image(
+          image: imageProvider,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
         ),
         placeholder: (context, url) => Stack(
           fit: StackFit.expand,
