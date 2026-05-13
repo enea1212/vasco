@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:vasco/core/cache/map_data_cache.dart';
 import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/domain/repositories/i_location_repository.dart';
 import 'package:vasco/presentation/providers/domain/feed_cache_provider.dart';
@@ -73,14 +77,62 @@ class _SplashScreenState extends State<SplashScreen>
           onError: (_) => locationProvider.startPublishing(uid, 'all'),
         );
 
-    // Wait for user data AND a minimum display time in parallel
+    // Wait for user data, map pre-load, locations, swipe candidates,
+    // and a minimum display time — all in parallel.
     await Future.wait([
       _waitForUser(),
+      _waitForLocations(),
+      _preloadMapData(),
+      context.read<SwipeProvider>().loadCandidates(uid).catchError((_) {}),
       Future.delayed(const Duration(milliseconds: 1800)),
     ]);
 
     if (!mounted) return;
     widget.onReady?.call();
+  }
+
+  Future<void> _waitForLocations() async {
+    if (!mounted) return;
+    final provider = context.read<LocationProvider>();
+    if (provider.friends.isNotEmpty) return;
+
+    final completer = Completer<void>();
+    void listener() {
+      if (provider.friends.isNotEmpty && !completer.isCompleted) {
+        completer.complete();
+      }
+    }
+
+    provider.addListener(listener);
+    await Future.any([
+      completer.future,
+      Future.delayed(const Duration(seconds: 4)),
+    ]);
+    provider.removeListener(listener);
+  }
+
+  Future<void> _preloadMapData() async {
+    // GeoJSON
+    if (!MapDataCache.geoJsonReady) {
+      try {
+        final raw = await rootBundle.loadString('assets/custom.geo.json');
+        MapDataCache.geoJson = raw;
+        MapDataCache.geoJsonData = json.decode(raw) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+
+    // Profile photo bytes (the slow HTTP part that map_page uses for the pin)
+    if (MapDataCache.profilePhotoBytes == null && mounted) {
+      final photoUrl = context.read<UserProvider>().user?.photoUrl;
+      if (photoUrl != null && photoUrl.isNotEmpty) {
+        try {
+          final res = await http.get(Uri.parse(photoUrl));
+          if (res.statusCode == 200) {
+            MapDataCache.profilePhotoBytes = res.bodyBytes;
+          }
+        } catch (_) {}
+      }
+    }
   }
 
   Future<void> _waitForUser() async {

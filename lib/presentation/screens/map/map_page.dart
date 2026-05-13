@@ -12,6 +12,7 @@ import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:vasco/core/cache/map_data_cache.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -29,6 +30,10 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
+  // GeoJSON cached across rebuilds — avoids re-reading the asset every time.
+  static String? _cachedGeoJson;
+  static Map<String, dynamic>? _cachedGeoJsonData;
+
   bool _isLoading = true;
 
   MapboxMap? _mapboxMap;
@@ -108,16 +113,38 @@ class _MapPageState extends State<MapPage> {
   Future<void> _initLocationAndImage() async {
     await _maybeShowFirstLaunchDialog();
     if (!mounted) return;
-    final pos = await _getLocationWithPermission();
-    if (!mounted) return;
-    if (pos == null) return;
-    _currentPosition = pos;
+
+    // Reuse position already obtained by LocationProvider during splash,
+    // falling back to a fresh GPS request only if not yet available.
+    final cached = context.read<LocationProvider>().myPosition;
+    if (cached != null) {
+      _currentPosition = cached;
+    } else {
+      final pos = await _getLocationWithPermission();
+      if (!mounted) return;
+      if (pos == null) return;
+      _currentPosition = pos;
+    }
+
     _cachedProfileImage = await _buildProfileImage();
   }
 
   Future<void> _loadGeoJson() async {
+    // Use splash-preloaded cache first, then static widget cache, then load fresh.
+    if (MapDataCache.geoJsonReady) {
+      _geoJsonString = MapDataCache.geoJson;
+      _geoJsonData = MapDataCache.geoJsonData;
+      return;
+    }
+    if (_cachedGeoJson != null) {
+      _geoJsonString = _cachedGeoJson;
+      _geoJsonData = _cachedGeoJsonData;
+      return;
+    }
     _geoJsonString = await rootBundle.loadString('assets/custom.geo.json');
     _geoJsonData = json.decode(_geoJsonString!) as Map<String, dynamic>;
+    _cachedGeoJson = _geoJsonString;
+    _cachedGeoJsonData = _geoJsonData;
   }
 
   Future<geo.Position?> _getLocationWithPermission() async {
@@ -490,34 +517,32 @@ class _MapPageState extends State<MapPage> {
 
     if (photoUrl != null && photoUrl.isNotEmpty) {
       try {
-        final response = await http.get(Uri.parse(photoUrl));
-        if (response.statusCode == 200) {
-          final codec = await ui.instantiateImageCodec(
-            response.bodyBytes,
-            targetWidth: size,
-            targetHeight: size,
+        // Use bytes preloaded during splash; fall back to a fresh download.
+        final bytes = MapDataCache.profilePhotoBytes ??
+            (await http.get(Uri.parse(photoUrl))).bodyBytes;
+        final codec = await ui.instantiateImageCodec(
+          bytes,
+          targetWidth: size,
+          targetHeight: size,
+        );
+        final frame = await codec.getNextFrame();
+        final img = frame.image;
+        final clipPath = Path()
+          ..addOval(
+            Rect.fromCircle(
+              center: const Offset(size / 2, size / 2),
+              radius: size / 2 - 4,
+            ),
           );
-          final frame = await codec.getNextFrame();
-          final img = frame.image;
-          final clipPath = Path()
-            ..addOval(
-              Rect.fromCircle(
-                center: const Offset(size / 2, size / 2),
-                radius: size / 2 - 4,
-              ),
-            );
-          canvas.save();
-          canvas.clipPath(clipPath);
-          canvas.drawImageRect(
-            img,
-            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            const Rect.fromLTRB(4, 4, size - 4, size - 4),
-            paint,
-          );
-          canvas.restore();
-        } else {
-          _drawFallbackIcon(canvas, size);
-        }
+        canvas.save();
+        canvas.clipPath(clipPath);
+        canvas.drawImageRect(
+          img,
+          Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+          const Rect.fromLTRB(4, 4, size - 4, size - 4),
+          paint,
+        );
+        canvas.restore();
       } catch (_) {
         _drawFallbackIcon(canvas, size);
       }
