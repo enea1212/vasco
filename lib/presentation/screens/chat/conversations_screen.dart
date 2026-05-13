@@ -129,7 +129,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       return otherId.isNotEmpty && otherId != currentUserId;
     }).toList();
 
-    if (validConversations.isEmpty && friends.isEmpty) {
+    if (validConversations.isEmpty) {
       return _emptyState();
     }
 
@@ -193,37 +193,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                   ],
                 );
               }, childCount: validConversations.length),
-            ),
-          ],
-          if (friends.isNotEmpty) ...[
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text(
-                  'All friends',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: AppColors.textHint,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate((ctx, i) {
-                final isLast = i == friends.length - 1;
-                return Column(
-                  children: [
-                    _FriendTile(
-                      friend: friends[i],
-                      currentUserId: currentUserId,
-                    ),
-                    if (!isLast)
-                      const Divider(height: 1, indent: 72, endIndent: 16),
-                  ],
-                );
-              }, childCount: friends.length),
             ),
           ],
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -315,7 +284,7 @@ class _FriendTileState extends State<_FriendTile> {
                 style: const TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 15,
-                  color: Color(0xFF111827),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
@@ -543,7 +512,7 @@ class _ConvTileState extends State<_ConvTile> {
                           style: TextStyle(
                             fontSize: 13,
                             color: unread > 0
-                                ? AppColors.textSecondary
+                                ? Colors.white
                                 : AppColors.textHint,
                             fontWeight: unread > 0
                                 ? FontWeight.w500
@@ -563,7 +532,7 @@ class _ConvTileState extends State<_ConvTile> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            '$unread',
+                            '+$unread',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,

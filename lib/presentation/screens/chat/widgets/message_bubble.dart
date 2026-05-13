@@ -16,10 +16,26 @@ class MessageBubble extends StatelessWidget {
     required this.showTime,
   });
 
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+  String _formatLabel(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(dt.year, dt.month, dt.day);
+    final diff = today.difference(msgDay).inDays;
+
+    final time =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+    if (diff == 0) return time;
+    if (diff == 1) return 'Yesterday · $time';
+
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final month = months[dt.month - 1];
+
+    if (dt.year == now.year) return '${dt.day} $month · $time';
+    return '${dt.day} $month ${dt.year} · $time';
   }
 
   @override
@@ -30,8 +46,8 @@ class MessageBubble extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8, top: 4),
             child: Text(
-              _formatTime(msg.createdAt),
-              style: const TextStyle(color: AppColors.textHint, fontSize: 11),
+              _formatLabel(msg.createdAt),
+              style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
           ),
         Align(
