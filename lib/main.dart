@@ -26,7 +26,9 @@ import 'package:vasco/models/user_model.dart';
 import 'package:vasco/services/feed_cache_service.dart';
 
 // ── Screens ──────────────────────────────────────────────────────────────────
+import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/presentation/screens/home/home_screen.dart';
+import 'package:vasco/presentation/screens/splash/splash_screen.dart';
 import 'package:vasco/features/auth/screens/login_screen.dart';
 
 // ── Infrastructure provider ───────────────────────────────────────────────────
@@ -343,10 +345,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Vasco',
       debugShowCheckedModeBanner: false,
-      // Theme identic cu main.dart original
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+<<<<<<< HEAD
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF4F46E5),
           secondary: Color(0xFF7C3AED),
@@ -356,6 +358,15 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF07071A),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF07071A),
+=======
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: AppColors.background,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.background,
+>>>>>>> loading_screen
           foregroundColor: Colors.white,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
@@ -370,7 +381,11 @@ class MyApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
+<<<<<<< HEAD
             backgroundColor: const Color(0xFF4F46E5),
+=======
+            backgroundColor: AppColors.primary,
+>>>>>>> loading_screen
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -390,7 +405,11 @@ class MyApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
+<<<<<<< HEAD
             side: const BorderSide(color: Color(0x1AFFFFFF), width: 1.5),
+=======
+            side: const BorderSide(color: AppColors.border, width: 1.5),
+>>>>>>> loading_screen
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(
               fontSize: 15,
@@ -400,7 +419,11 @@ class MyApp extends StatelessWidget {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
+<<<<<<< HEAD
           fillColor: const Color(0xFF1C1B36),
+=======
+          fillColor: AppColors.surfaceAlt,
+>>>>>>> loading_screen
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 18,
             vertical: 16,
@@ -411,28 +434,45 @@ class MyApp extends StatelessWidget {
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
+<<<<<<< HEAD
             borderSide: const BorderSide(color: Color(0x1AFFFFFF), width: 1),
+=======
+            borderSide: const BorderSide(color: AppColors.border, width: 1),
+>>>>>>> loading_screen
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
+<<<<<<< HEAD
           labelStyle: const TextStyle(color: Color(0x8CFFFFFF)),
           hintStyle: const TextStyle(color: Color(0x61FFFFFF)),
         ),
         cardTheme: CardThemeData(
           color: const Color(0xFF13122B),
+=======
+          labelStyle: const TextStyle(color: AppColors.textMuted),
+          hintStyle: const TextStyle(color: AppColors.textHint),
+        ),
+        cardTheme: CardThemeData(
+          color: AppColors.surface,
+>>>>>>> loading_screen
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
         dividerTheme: const DividerThemeData(
+<<<<<<< HEAD
           color: Color(0x0DFFFFFF),
+=======
+          color: AppColors.divider,
+>>>>>>> loading_screen
           thickness: 1,
           space: 1,
         ),
         dialogTheme: const DialogThemeData(
+<<<<<<< HEAD
           backgroundColor: Color(0xFF13122B),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
@@ -520,6 +560,79 @@ class MyApp extends StatelessWidget {
           return const LoginScreen();
         },
       ),
+=======
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+        ),
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: AppColors.surfaceAlt,
+          contentTextStyle: TextStyle(color: Colors.white),
+        ),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? AppColors.primary : null),
+        ),
+        switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected) ? AppColors.primary : null),
+          trackColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.selected)
+                  ? AppColors.primaryLight
+                  : null),
+        ),
+        popupMenuTheme: const PopupMenuThemeData(
+          color: AppColors.surfaceAlt,
+        ),
+      ),
+      home: const _AuthGate(),
+    );
+  }
+}
+
+// ─── Auth gate ────────────────────────────────────────────────────────────────
+// Routes: auth-loading → SplashScreen, logged-in+loading → SplashScreen,
+//         ready → HomeScreen, logged-out → LoginScreen.
+
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  String? _readyUid;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<UserModel?>(
+      stream: context.read<AuthService>().authStateChanges(),
+      builder: (context, snapshot) {
+        // Firebase auth still resolving
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SplashScreen();
+        }
+
+        final user = snapshot.data;
+
+        // Not authenticated
+        if (user == null) {
+          _readyUid = null;
+          return const LoginScreen();
+        }
+
+        // Authenticated but providers not yet initialised for this uid
+        if (_readyUid != user.id) {
+          return SplashScreen(
+            uid: user.id,
+            onReady: () => setState(() => _readyUid = user.id),
+          );
+        }
+
+        // Everything ready
+        return const HomeScreen();
+      },
+>>>>>>> loading_screen
     );
   }
 }
