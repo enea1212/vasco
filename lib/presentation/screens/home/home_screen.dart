@@ -288,9 +288,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final choice = await showDialog<String>(
         context: context,
         builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -505,6 +502,7 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: AppColors.surfaceAlt,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           children: [
@@ -597,64 +595,67 @@ class _FeedPageState extends State<_FeedPage>
     return Column(
       children: [
         // ── Header ───────────────────────────────────────────────────────
-        Material(
-          color: AppColors.surface,
-          elevation: 0,
+        Container(
+          color: AppColors.background,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SafeArea(
                 bottom: false,
-                child: SizedBox(
-                  height: kToolbarHeight,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Vasco',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.favorite_border_rounded,
-                              color: AppColors.textPrimary, size: 26),
-                          onPressed: () {},
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.send_outlined,
-                              color: AppColors.textPrimary, size: 24),
-                          onPressed: () {},
-                        ),
-                        const SizedBox(width: 4),
-                      ],
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [AppColors.primary, AppColors.purple],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ).createShader(bounds),
+                    child: const Text(
+                      'Vasco',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -1.2,
+                      ),
                     ),
                   ),
                 ),
               ),
-              TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Friends'),
-                  Tab(text: 'Friends of Friends'),
-                ],
-                labelStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700),
-                unselectedLabelStyle: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.textHint,
-                indicatorColor: AppColors.primary,
-                indicatorSize: TabBarIndicatorSize.tab,
-                dividerColor: Colors.transparent,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    tabs: const [
+                      Tab(text: 'Friends'),
+                      Tab(text: 'Discover'),
+                    ],
+                    labelStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700),
+                    unselectedLabelStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: AppColors.textHint,
+                    indicator: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.purple],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                  ),
+                ),
               ),
-              const Divider(height: 0.5, thickness: 0.5),
+              Divider(height: 0.5, thickness: 0.5, color: AppColors.border),
             ],
           ),
         ),
@@ -740,8 +741,9 @@ class _PostsFeed extends StatelessWidget {
                       width: 72,
                       height: 72,
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceAlt,
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.border),
                       ),
                       child: const Icon(Icons.photo_camera_outlined,
                           size: 36, color: AppColors.textHint),

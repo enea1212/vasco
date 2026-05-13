@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 
 void showProfileDetail(BuildContext context, Map<String, dynamic> profile) {
   showModalBottomSheet(
@@ -67,7 +68,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
       maxChildSize: 1.0,
       builder: (_, scrollController) => Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: ClipRRect(
@@ -96,14 +97,14 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                                 progress == null
                                     ? child
                                     : Container(
-                                        color: const Color(0xFFE5E7EB),
+                                        color: AppColors.surfaceAlt,
                                         child: const Center(
                                           child: CircularProgressIndicator(
                                               strokeWidth: 2),
                                         ),
                                       ),
                             errorBuilder: (context, err, stack) => Container(
-                              color: const Color(0xFFE5E7EB),
+                              color: AppColors.surfaceAlt,
                               child: const Icon(Icons.broken_image_rounded,
                                   color: Colors.white54, size: 60),
                             ),
@@ -111,7 +112,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                         )
                       else
                         Container(
-                          color: const Color(0xFFE5E7EB),
+                          color: AppColors.surfaceAlt,
                           child: const Icon(Icons.person_rounded,
                               color: Colors.white54, size: 100),
                         ),
@@ -274,12 +275,12 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                       Row(
                         children: [
                           const Icon(Icons.photo_library_outlined,
-                              size: 16, color: Color(0xFF9CA3AF)),
+                              size: 16, color: AppColors.textHint),
                           const SizedBox(width: 6),
                           Text(
                             '${photos.length} photos',
                             style: const TextStyle(
-                                fontSize: 13, color: Color(0xFF9CA3AF)),
+                                fontSize: 13, color: AppColors.textHint),
                           ),
                         ],
                       ),
@@ -293,7 +294,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                         bio,
                         style: const TextStyle(
                           fontSize: 15,
-                          color: Color(0xFF374151),
+                          color: AppColors.textPrimary,
                           height: 1.5,
                         ),
                       ),
@@ -323,7 +324,7 @@ class _ProfileDetailSheetState extends State<_ProfileDetailSheet> {
                             "This user hasn't added\nany information yet.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: Color(0xFF9CA3AF), fontSize: 14),
+                                color: AppColors.textHint, fontSize: 14),
                           ),
                         ),
                       ),
@@ -351,7 +352,7 @@ class _SectionTitle extends StatelessWidget {
       style: const TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF111827),
+        color: AppColors.textPrimary,
       ),
     );
   }
@@ -366,14 +367,14 @@ class _InterestChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: AppColors.primaryMid,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFC7D2FE)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Color(0xFF4F46E5),
+          color: AppColors.primary,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),

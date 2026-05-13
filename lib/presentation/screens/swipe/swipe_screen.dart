@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'widgets/tinder_card.dart';
 import 'widgets/match_dialog.dart';
@@ -180,9 +181,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDB2777),
+                      color: AppColors.rose,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+                      border: Border.all(color: AppColors.background, width: 1.5),
                     ),
                     constraints: const BoxConstraints(
                       minWidth: 18,
@@ -213,12 +214,12 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   const Icon(
                     Icons.people_outline,
                     size: 64,
-                    color: Color(0xFFD1D5DB),
+                    color: AppColors.textHint,
                   ),
                   const SizedBox(height: 16),
                   const Text(
                     'No new people found nearby.',
-                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 16),
+                    style: TextStyle(color: AppColors.textHint, fontSize: 16),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
@@ -264,16 +265,16 @@ class _SwipeScreenState extends State<SwipeScreen> {
                           FloatingActionButton(
                             heroTag: 'swipe_left',
                             onPressed: () => controller.swipeLeft(),
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.red,
+                            backgroundColor: AppColors.surface,
+                            foregroundColor: AppColors.danger,
                             elevation: 4,
                             child: const Icon(Icons.close_rounded, size: 30),
                           ),
                           FloatingActionButton(
                             heroTag: 'swipe_right',
                             onPressed: () => controller.swipeRight(),
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.green,
+                            backgroundColor: AppColors.surface,
+                            foregroundColor: AppColors.greenEmerald,
                             elevation: 4,
                             child: const Icon(Icons.favorite_rounded, size: 30),
                           ),

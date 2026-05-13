@@ -56,7 +56,11 @@ class _FriendsPageState extends State<FriendsPage>
             labelColor: Colors.white,
             unselectedLabelColor: AppColors.textMuted,
             indicator: BoxDecoration(
-              color: AppColors.textPrimary,
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, AppColors.purple],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(AppSizes.radiusTile),
             ),
             indicatorSize: TabBarIndicatorSize.tab,
@@ -385,7 +389,7 @@ class _UserTileState extends State<_UserTile> {
       case 'pending_received':
         return _actionBtn(
           'Accept',
-          AppColors.textPrimary,
+          AppColors.primary,
           Colors.white,
           () {
             final req = provider.incomingRequests
@@ -641,7 +645,7 @@ class _RequestTileState extends State<_RequestTile> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.textPrimary,
+                          color: AppColors.primary,
                           borderRadius:
                               BorderRadius.circular(AppSizes.radiusIcon),
                         ),

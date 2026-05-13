@@ -10,6 +10,7 @@ import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
 import 'package:vasco/presentation/providers/domain/messaging_provider.dart';
 import 'package:vasco/presentation/providers/domain/friends_provider.dart';
 import 'package:vasco/presentation/providers/domain/user_provider.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 import 'chat_screen.dart';
 
 class ConversationsScreen extends StatefulWidget {
@@ -48,7 +49,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
       body: Column(
         children: [
           Padding(
@@ -60,7 +60,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                 hintText: 'Search friends…',
                 prefixIcon: const Icon(
                   Icons.search_rounded,
-                  color: Color(0xFF9CA3AF),
                   size: 20,
                 ),
                 suffixIcon: _query.isNotEmpty
@@ -68,7 +67,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                         icon: const Icon(
                           Icons.clear_rounded,
                           size: 18,
-                          color: Color(0xFF9CA3AF),
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -76,15 +74,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                         },
                       )
                     : null,
-                filled: true,
-                fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
                 ),
               ),
             ),
@@ -108,7 +100,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       return const Center(
         child: Text(
           'No friend found.',
-          style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+          style: TextStyle(color: AppColors.textHint, fontSize: 14),
         ),
       );
     }
@@ -181,7 +173,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: Color(0xFF6B7280),
+                    color: AppColors.textHint,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -212,7 +204,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: Color(0xFF6B7280),
+                    color: AppColors.textHint,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -249,13 +241,14 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
             ),
             child: const Icon(
               Icons.chat_bubble_outline_rounded,
               size: 36,
-              color: Color(0xFF9CA3AF),
+              color: AppColors.textHint,
             ),
           ),
           const SizedBox(height: 16),
@@ -264,13 +257,13 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 16,
-              color: Color(0xFF374151),
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           const Text(
             'Search a friend and send them a message.',
-            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+            style: TextStyle(color: AppColors.textHint, fontSize: 13),
           ),
         ],
       ),
@@ -306,11 +299,11 @@ class _FriendTileState extends State<_FriendTile> {
               backgroundImage: widget.friend.photoUrl != null
                   ? NetworkImage(widget.friend.photoUrl!)
                   : null,
-              backgroundColor: const Color(0xFFF3F4F6),
+              backgroundColor: AppColors.surfaceAlt,
               child: widget.friend.photoUrl == null
                   ? const Icon(
                       Icons.person_rounded,
-                      color: Color(0xFF9CA3AF),
+                      color: AppColors.textHint,
                       size: 20,
                     )
                   : null,
@@ -466,12 +459,12 @@ class _ConvTileState extends State<_ConvTile> {
                         width: 52,
                         height: 52,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2FF),
+                          color: AppColors.primaryMid,
                           borderRadius: BorderRadius.circular(26),
                         ),
                         child: const Icon(
                           Icons.group_rounded,
-                          color: Color(0xFF4F46E5),
+                          color: AppColors.primary,
                           size: 26,
                         ),
                       )
@@ -480,11 +473,11 @@ class _ConvTileState extends State<_ConvTile> {
                         backgroundImage: photo != null
                             ? NetworkImage(photo)
                             : null,
-                        backgroundColor: const Color(0xFFF3F4F6),
+                        backgroundColor: AppColors.surfaceAlt,
                         child: photo == null
                             ? const Icon(
                                 Icons.person_rounded,
-                                color: Color(0xFF9CA3AF),
+                                color: AppColors.textHint,
                               )
                             : null,
                       ),
@@ -496,9 +489,9 @@ class _ConvTileState extends State<_ConvTile> {
                       width: 14,
                       height: 14,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4F46E5),
+                        color: AppColors.primary,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: AppColors.background, width: 2),
                       ),
                     ),
                   ),
@@ -519,7 +512,7 @@ class _ConvTileState extends State<_ConvTile> {
                                 ? FontWeight.w700
                                 : FontWeight.w500,
                             fontSize: 15,
-                            color: const Color(0xFF111827),
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -528,8 +521,8 @@ class _ConvTileState extends State<_ConvTile> {
                         style: TextStyle(
                           fontSize: 12,
                           color: unread > 0
-                              ? const Color(0xFF4F46E5)
-                              : const Color(0xFF9CA3AF),
+                              ? AppColors.primary
+                              : AppColors.textHint,
                           fontWeight: unread > 0
                               ? FontWeight.w600
                               : FontWeight.normal,
@@ -550,8 +543,8 @@ class _ConvTileState extends State<_ConvTile> {
                           style: TextStyle(
                             fontSize: 13,
                             color: unread > 0
-                                ? const Color(0xFF374151)
-                                : const Color(0xFF9CA3AF),
+                                ? AppColors.textSecondary
+                                : AppColors.textHint,
                             fontWeight: unread > 0
                                 ? FontWeight.w500
                                 : FontWeight.normal,
@@ -566,7 +559,7 @@ class _ConvTileState extends State<_ConvTile> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4F46E5),
+                            color: AppColors.primary,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(

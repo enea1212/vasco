@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/models/message_model.dart';
 
 /// Widget for an individual message bubble.
@@ -30,7 +31,7 @@ class MessageBubble extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 8, top: 4),
             child: Text(
               _formatTime(msg.createdAt),
-              style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
+              style: const TextStyle(color: AppColors.textHint, fontSize: 11),
             ),
           ),
         Align(
@@ -49,7 +50,7 @@ class MessageBubble extends StatelessWidget {
                       end: Alignment.bottomRight,
                     )
                   : null,
-              color: isMe ? null : Colors.white,
+              color: isMe ? null : AppColors.surface,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(18),
                 topRight: const Radius.circular(18),
@@ -67,7 +68,7 @@ class MessageBubble extends StatelessWidget {
             child: Text(
               msg.text,
               style: TextStyle(
-                color: isMe ? Colors.white : const Color(0xFF111827),
+                color: isMe ? Colors.white : AppColors.textPrimary,
                 fontSize: 15,
                 height: 1.35,
               ),

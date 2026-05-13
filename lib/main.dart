@@ -346,19 +346,23 @@ class MyApp extends StatelessWidget {
       // Theme identic cu main.dart original
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4F46E5),
-          brightness: Brightness.light,
+        brightness: Brightness.dark,
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF4F46E5),
+          secondary: Color(0xFF7C3AED),
+          surface: Color(0xFF13122B),
+          error: Color(0xFFEF4444),
         ),
-        scaffoldBackgroundColor: const Color(0xFFF9FAFB),
+        scaffoldBackgroundColor: const Color(0xFF07071A),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF111827),
+          backgroundColor: Color(0xFF07071A),
+          foregroundColor: Colors.white,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           centerTitle: true,
+          iconTheme: IconThemeData(color: Colors.white),
           titleTextStyle: TextStyle(
-            color: Color(0xFF111827),
+            color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
@@ -366,7 +370,7 @@ class MyApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF111827),
+            backgroundColor: const Color(0xFF4F46E5),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -382,11 +386,11 @@ class MyApp extends StatelessWidget {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF111827),
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
-            side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+            side: const BorderSide(color: Color(0x1AFFFFFF), width: 1.5),
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(
               fontSize: 15,
@@ -396,7 +400,7 @@ class MyApp extends StatelessWidget {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFFF3F4F6),
+          fillColor: const Color(0xFF1C1B36),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 18,
             vertical: 16,
@@ -407,26 +411,63 @@ class MyApp extends StatelessWidget {
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
+            borderSide: const BorderSide(color: Color(0x1AFFFFFF), width: 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 2),
           ),
-          labelStyle: const TextStyle(color: Color(0xFF6B7280)),
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+          labelStyle: const TextStyle(color: Color(0x8CFFFFFF)),
+          hintStyle: const TextStyle(color: Color(0x61FFFFFF)),
         ),
         cardTheme: CardThemeData(
-          color: Colors.white,
+          color: const Color(0xFF13122B),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
         dividerTheme: const DividerThemeData(
-          color: Color(0xFFF3F4F6),
+          color: Color(0x0DFFFFFF),
           thickness: 1,
           space: 1,
+        ),
+        dialogTheme: const DialogThemeData(
+          backgroundColor: Color(0xFF13122B),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
+        ),
+        popupMenuTheme: const PopupMenuThemeData(
+          color: Color(0xFF1C1B36),
+          surfaceTintColor: Colors.transparent,
+        ),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const Color(0xFF4F46E5);
+            }
+            return const Color(0x1AFFFFFF);
+          }),
+        ),
+        switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const Color(0xFF4F46E5);
+            }
+            return const Color(0x8CFFFFFF);
+          }),
+          trackColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return const Color(0x334F46E5);
+            }
+            return const Color(0x1AFFFFFF);
+          }),
+        ),
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: Color(0xFF1C1B36),
+          contentTextStyle: TextStyle(color: Colors.white),
         ),
       ),
       home: StreamBuilder<UserModel?>(
@@ -435,7 +476,7 @@ class MyApp extends StatelessWidget {
           // Loading state
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
-              backgroundColor: Color(0xFFF9FAFB),
+              backgroundColor: Color(0xFF07071A),
               body: Center(
                 child: CircularProgressIndicator(
                   color: Color(0xFF4F46E5),

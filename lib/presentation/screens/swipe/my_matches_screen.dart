@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/presentation/screens/chat/chat_screen.dart';
 
 class MyMatchesScreen extends StatefulWidget {
@@ -61,7 +62,7 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
       appBar: AppBar(
         title: const Text(
           'My Matches',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         flexibleSpace: Container(
@@ -76,7 +77,7 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: AppColors.background,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _matches.isEmpty
@@ -105,13 +106,13 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.favorite_border_rounded,
               size: 40,
-              color: Color(0xFF9CA3AF),
+              color: AppColors.textHint,
             ),
           ),
           const SizedBox(height: 16),
@@ -120,14 +121,14 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 18,
-              color: Color(0xFF374151),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
           const Text(
             'Keep exploring to\nfind connections!',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+            style: TextStyle(color: AppColors.textHint, fontSize: 14),
           ),
         ],
       ),
@@ -174,11 +175,11 @@ class _MatchCard extends StatelessWidget {
           : null,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: AppColors.cardShadow,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -192,10 +193,10 @@ class _MatchCard extends StatelessWidget {
               photo != null && photo.isNotEmpty
                   ? Image.network(photo, fit: BoxFit.cover)
                   : Container(
-                      color: const Color(0xFFF3F4F6),
+                      color: AppColors.surfaceAlt,
                       child: const Icon(
                         Icons.person_rounded,
-                        color: Color(0xFF9CA3AF),
+                        color: AppColors.textHint,
                         size: 60,
                       ),
                     ),

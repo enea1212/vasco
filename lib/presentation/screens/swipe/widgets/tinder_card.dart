@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 
 class TinderCard extends StatelessWidget {
   final Map<String, dynamic> profile;
@@ -32,8 +33,8 @@ class TinderCard extends StatelessWidget {
             Image.network(photoUrl, fit: BoxFit.cover)
           else
             Container(
-              color: const Color(0xFFE5E7EB),
-              child: const Icon(Icons.person_rounded, color: Colors.white54, size: 80),
+              color: AppColors.surfaceAlt,
+              child: const Icon(Icons.person_rounded, color: AppColors.textHint, size: 80),
             ),
 
           // Gradient negru jos

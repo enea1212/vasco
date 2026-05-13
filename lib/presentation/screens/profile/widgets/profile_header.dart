@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/domain/entities/user_entity.dart';
 import 'package:vasco/presentation/screens/profile/settings_page.dart';
 
@@ -100,14 +101,14 @@ class ProfileHeader extends StatelessWidget {
                   backgroundImage: (user.photoUrl?.isNotEmpty == true)
                       ? NetworkImage(user.photoUrl!)
                       : null,
-                  backgroundColor: const Color(0xFFEEF2FF),
+                  backgroundColor: AppColors.primaryMid,
                   child: (user.photoUrl == null || user.photoUrl!.isEmpty)
                       ? Text(
                           initials,
                           style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF4F46E5),
+                            color: AppColors.primary,
                           ),
                         )
                       : null,

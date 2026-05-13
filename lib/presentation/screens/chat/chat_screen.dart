@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/models/message_model.dart';
 import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
+import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'widgets/message_bubble.dart';
 
@@ -125,11 +126,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
         titleSpacing: 0,
         title: widget.groupName != null
             ? Row(
@@ -138,13 +135,13 @@ class _ChatScreenState extends State<ChatScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
+                      color: AppColors.primaryMid,
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: const Icon(
                       Icons.group_rounded,
                       size: 18,
-                      color: Color(0xFF4F46E5),
+                      color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -153,7 +150,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      color: Color(0xFF111827),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ],
@@ -177,12 +174,12 @@ class _ChatScreenState extends State<ChatScreen> {
                       backgroundImage: widget.otherUserPhoto != null
                           ? NetworkImage(widget.otherUserPhoto!)
                           : null,
-                      backgroundColor: const Color(0xFFF3F4F6),
+                      backgroundColor: AppColors.surfaceAlt,
                       child: widget.otherUserPhoto == null
                           ? const Icon(
                               Icons.person_rounded,
                               size: 18,
-                              color: Color(0xFF9CA3AF),
+                              color: AppColors.textHint,
                             )
                           : null,
                     ),
@@ -192,7 +189,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        color: Color(0xFF111827),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -239,12 +236,12 @@ class _ChatScreenState extends State<ChatScreen> {
             backgroundImage: widget.otherUserPhoto != null
                 ? NetworkImage(widget.otherUserPhoto!)
                 : null,
-            backgroundColor: const Color(0xFFF3F4F6),
+            backgroundColor: AppColors.surfaceAlt,
             child: widget.otherUserPhoto == null
                 ? const Icon(
                     Icons.person_rounded,
                     size: 40,
-                    color: Color(0xFF9CA3AF),
+                    color: AppColors.textHint,
                   )
                 : null,
           ),
@@ -254,13 +251,13 @@ class _ChatScreenState extends State<ChatScreen> {
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 17,
-              color: Color(0xFF111827),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
           const Text(
             'Send the first message!',
-            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+            style: TextStyle(color: AppColors.textHint, fontSize: 14),
           ),
         ],
       ),
@@ -284,7 +281,7 @@ class _InputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
@@ -297,8 +294,9 @@ class _InputBar extends StatelessWidget {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border),
               ),
               child: TextField(
                 controller: controller,
@@ -307,7 +305,6 @@ class _InputBar extends StatelessWidget {
                 minLines: 1,
                 decoration: const InputDecoration(
                   hintText: 'Write a message…',
-                  hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 16,

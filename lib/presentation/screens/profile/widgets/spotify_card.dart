@@ -87,7 +87,7 @@ class _SpotifyCardState extends State<SpotifyCard> {
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
-                        color: Color(0xFF111827),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     Text(
@@ -98,7 +98,7 @@ class _SpotifyCardState extends State<SpotifyCard> {
                           : 'Connect to add music',
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF6B7280),
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ],

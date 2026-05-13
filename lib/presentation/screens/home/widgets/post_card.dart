@@ -464,18 +464,6 @@ class _PostCardState extends State<PostCard> {
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      const Icon(
-                        Icons.send_outlined,
-                        size: 25,
-                        color: AppColors.textPrimary,
-                      ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.bookmark_border_rounded,
-                        size: 26,
-                        color: AppColors.textPrimary,
-                      ),
                     ],
                   ),
                 ),
