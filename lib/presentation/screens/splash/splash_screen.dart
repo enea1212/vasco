@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:vasco/core/cache/map_data_cache.dart';
 import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/domain/repositories/i_location_repository.dart';
+import 'package:vasco/presentation/providers/domain/coauthoring_provider.dart';
 import 'package:vasco/presentation/providers/domain/feed_cache_provider.dart';
 import 'package:vasco/presentation/providers/domain/feed_provider.dart';
 import 'package:vasco/presentation/providers/domain/friends_provider.dart';
@@ -66,6 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
     context.read<MessagingProvider>().init(uid);
     context.read<SwipeProvider>().initMatches(uid);
     context.read<FeedCacheProvider>().init(uid);
+    context.read<CoAuthoringProvider>().init(uid);
 
     // Start location publishing in background
     final locationProvider = context.read<LocationProvider>();

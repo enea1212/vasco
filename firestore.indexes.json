@@ -25,6 +25,22 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "location_photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pendingCoAuthorIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "location_photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "acceptedCoAuthorIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

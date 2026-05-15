@@ -19,11 +19,15 @@ class MyPhotoService {
     String? spotifySong,
     String? spotifyArtist,
     String? spotifyAlbumArt,
+    List<String> coAuthorIds = const [],
   }) async {
     final id = const Uuid().v4();
     final ref = FirebaseStorage.instance.ref('location_photos/$id.jpg');
     await ref.putFile(imageFile);
     final downloadUrl = await ref.getDownloadURL();
+
+    final cleanCoAuthors =
+        coAuthorIds.where((u) => u.isNotEmpty && u != userId).toSet().toList();
 
     final data = <String, dynamic>{
       'userId': userId,
@@ -35,6 +39,9 @@ class MyPhotoService {
       'createdAt': FieldValue.serverTimestamp(),
       'likesCount': 0,
       'commentsCount': 0,
+      'coAuthorIds': cleanCoAuthors,
+      'pendingCoAuthorIds': cleanCoAuthors,
+      'acceptedCoAuthorIds': <String>[],
     };
     if (countryName != null) data['countryName'] = countryName;
     if (locationName != null) data['locationName'] = locationName;

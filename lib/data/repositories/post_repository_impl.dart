@@ -34,6 +34,23 @@ class PostRepositoryImpl implements IPostRepository {
     await _datasource.deletePost(postId);
   }
 
+  @override
+  Stream<List<PostEntity>> watchPendingCoAuthorRequests(String userId) {
+    return (_datasource.watchPendingCoAuthorRequests(userId)
+            as Stream<List<Map<String, dynamic>>>)
+        .map(_mapsToEntities);
+  }
+
+  @override
+  Future<void> acceptCoAuthorRequest(String postId, String userId) async {
+    await _datasource.acceptCoAuthorRequest(postId, userId);
+  }
+
+  @override
+  Future<void> declineCoAuthorRequest(String postId, String userId) async {
+    await _datasource.declineCoAuthorRequest(postId, userId);
+  }
+
   List<PostEntity> _mapsToEntities(List<Map<String, dynamic>> maps) =>
       maps
           .map((m) => postModelFromMap(m, m['id'] as String).toEntity())
@@ -45,5 +62,8 @@ class PostRepositoryImpl implements IPostRepository {
         'imageUrl': e.imageUrl,
         'description': e.description,
         'createdAt': e.createdAt,
+        'coAuthorIds': e.coAuthorIds,
+        'acceptedCoAuthorIds': e.acceptedCoAuthorIds,
+        'pendingCoAuthorIds': e.pendingCoAuthorIds,
       };
 }

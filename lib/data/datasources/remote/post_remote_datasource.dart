@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
@@ -8,15 +10,22 @@ class PostRemoteDatasource {
 
   // ─── Feed (location_photos) ───────────────────────────────────────────────
 
-  /// Posts for a single user, ordered by createdAt desc.
+  /// Posts where `userId == X` OR `acceptedCoAuthorIds array-contains X`,
+  /// merged client-side and sorted by createdAt desc.
   Stream<List<Map<String, dynamic>>> watchUserPosts(String userId) {
-    return _db
+    final ownStream = _db
         .collection('location_photos')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    final coAuthorStream = _db
+        .collection('location_photos')
+        .where('acceptedCoAuthorIds', arrayContains: userId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    return _mergeAndSort(ownStream, coAuthorStream);
   }
 
   /// Main feed: last 40 location_photos ordered by createdAt desc.
@@ -73,15 +82,49 @@ class PostRemoteDatasource {
     await callable.call({'postId': postId});
   }
 
-  /// Posts from a specific set of user IDs (≤ 30 per Firestore whereIn limit).
-  /// Sorted client-side by createdAt desc to avoid requiring a composite index.
+  /// Posts from a specific set of user IDs (≤ 30 per Firestore whereIn limit)
+  /// merged with posts where any of those users are accepted co-authors.
+  /// Sorted client-side by createdAt desc.
   Stream<List<Map<String, dynamic>>> watchPostsByUserIds(List<String> userIds) {
     if (userIds.isEmpty) return Stream.value([]);
     final ids = userIds.length > 30 ? userIds.sublist(0, 30) : userIds;
-    return _db
+
+    final ownStream = _db
         .collection('location_photos')
         .where('userId', whereIn: ids)
         .limit(40)
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    final coAuthorStream = _db
+        .collection('location_photos')
+        .where('acceptedCoAuthorIds', arrayContainsAny: ids)
+        .limit(40)
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    return _mergeAndSort(ownStream, coAuthorStream);
+  }
+
+  // ─── Location photos write ────────────────────────────────────────────────
+
+  Future<void> createLocationPhoto(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    await _db.collection('location_photos').doc(id).set(data);
+  }
+
+  // ─── Co-authoring ─────────────────────────────────────────────────────────
+
+  /// Posts where `pendingCoAuthorIds array-contains userId` —
+  /// i.e. requests awaiting a response from this user.
+  Stream<List<Map<String, dynamic>>> watchPendingCoAuthorRequests(
+    String userId,
+  ) {
+    return _db
+        .collection('location_photos')
+        .where('pendingCoAuthorIds', arrayContains: userId)
         .snapshots()
         .map((snap) {
           final list = snap.docs
@@ -96,12 +139,73 @@ class PostRemoteDatasource {
         });
   }
 
-  // ─── Location photos write ────────────────────────────────────────────────
+  /// Move user from `pendingCoAuthorIds` to `acceptedCoAuthorIds`.
+  Future<void> acceptCoAuthorRequest(String postId, String userId) async {
+    await _db.collection('location_photos').doc(postId).update({
+      'pendingCoAuthorIds': FieldValue.arrayRemove([userId]),
+      'acceptedCoAuthorIds': FieldValue.arrayUnion([userId]),
+    });
+  }
 
-  Future<void> createLocationPhoto(
-    String id,
-    Map<String, dynamic> data,
-  ) async {
-    await _db.collection('location_photos').doc(id).set(data);
+  /// Remove user from `pendingCoAuthorIds` (declined — no add elsewhere).
+  Future<void> declineCoAuthorRequest(String postId, String userId) async {
+    await _db.collection('location_photos').doc(postId).update({
+      'pendingCoAuthorIds': FieldValue.arrayRemove([userId]),
+    });
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Combines two streams of posts; emits a deduped + sorted list each time
+  /// either side produces an update.
+  Stream<List<Map<String, dynamic>>> _mergeAndSort(
+    Stream<List<Map<String, dynamic>>> a,
+    Stream<List<Map<String, dynamic>>> b,
+  ) {
+    List<Map<String, dynamic>> latestA = const [];
+    List<Map<String, dynamic>> latestB = const [];
+    final controller =
+        StreamController<List<Map<String, dynamic>>>.broadcast();
+
+    void emit() {
+      final byId = <String, Map<String, dynamic>>{};
+      for (final p in latestA) {
+        final id = p['id'] as String?;
+        if (id != null) byId[id] = p;
+      }
+      for (final p in latestB) {
+        final id = p['id'] as String?;
+        if (id != null) byId.putIfAbsent(id, () => p);
+      }
+      final merged = byId.values.toList()
+        ..sort((x, y) {
+          final tx = (x['createdAt'] as Timestamp?)?.seconds ?? 0;
+          final ty = (y['createdAt'] as Timestamp?)?.seconds ?? 0;
+          return ty.compareTo(tx);
+        });
+      controller.add(merged);
+    }
+
+    final subA = a.listen(
+      (v) {
+        latestA = v;
+        emit();
+      },
+      onError: controller.addError,
+    );
+    final subB = b.listen(
+      (v) {
+        latestB = v;
+        emit();
+      },
+      onError: controller.addError,
+    );
+
+    controller.onCancel = () async {
+      await subA.cancel();
+      await subB.cancel();
+    };
+
+    return controller.stream;
   }
 }

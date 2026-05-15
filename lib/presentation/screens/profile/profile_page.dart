@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart' show CupertinoSliverRefreshControl;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -25,7 +24,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  Stream<QuerySnapshot>? _photosStream;
+  Stream<List<Map<String, dynamic>>>? _photosStream;
   String? _streamUid;
   UserProvider? _userProvider;
 
@@ -55,18 +54,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _initStream(String? uid) {
-    debugPrint(
-      '[ProfileScreen] _initStream called with uid: $uid, _streamUid: $_streamUid',
-    );
     if (uid == null || uid == _streamUid) return;
     setState(() {
       _streamUid = uid;
-      _photosStream = FirebaseFirestore.instance
-          .collection('location_photos')
-          .where('userId', isEqualTo: uid)
-          .orderBy('createdAt', descending: true)
-          .snapshots();
-      debugPrint('[ProfileScreen] _photosStream set for uid: $uid');
+      // watchUserPosts unifies own posts + posts where uid is an accepted
+      // co-author, so this list reflects both authoring and co-authoring.
+      _photosStream =
+          context.read<PostRemoteDatasource>().watchUserPosts(uid);
     });
   }
 
@@ -79,11 +73,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _onRefresh() async {
     if (_streamUid != null) {
       setState(() {
-        _photosStream = FirebaseFirestore.instance
-            .collection('location_photos')
-            .where('userId', isEqualTo: _streamUid)
-            .orderBy('createdAt', descending: true)
-            .snapshots();
+        _photosStream =
+            context.read<PostRemoteDatasource>().watchUserPosts(_streamUid!);
       });
     }
   }
@@ -98,10 +89,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _photosStream,
         builder: (context, photosSnap) {
-          final photoDocs = photosSnap.data?.docs ?? [];
+          final photoDocs = photosSnap.data ?? const <Map<String, dynamic>>[];
           final photosCount = photoDocs.length;
 
           return ScrollConfiguration(
@@ -356,16 +347,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // ─── Trips section (grouped by country) ──────────────────────────────────────
 
 class _TripsSection extends StatelessWidget {
-  final List<QueryDocumentSnapshot> photoDocs;
+  final List<Map<String, dynamic>> photoDocs;
 
   const _TripsSection({required this.photoDocs});
 
-  Map<String, List<QueryDocumentSnapshot>> _groupByCountry() {
-    final map = <String, List<QueryDocumentSnapshot>>{};
-    for (final doc in photoDocs) {
-      final data = doc.data() as Map<String, dynamic>;
+  Map<String, List<Map<String, dynamic>>> _groupByCountry() {
+    final map = <String, List<Map<String, dynamic>>>{};
+    for (final data in photoDocs) {
       final country = data['countryName'] as String? ?? 'Other';
-      map.putIfAbsent(country, () => []).add(doc);
+      map.putIfAbsent(country, () => []).add(data);
     }
     return map;
   }
@@ -425,8 +415,8 @@ class _TripsSection extends StatelessWidget {
 
 class _CountryPhotoRow extends StatelessWidget {
   final String country;
-  final List<QueryDocumentSnapshot> docs;
-  final List<QueryDocumentSnapshot> allDocs;
+  final List<Map<String, dynamic>> docs;
+  final List<Map<String, dynamic>> allDocs;
 
   const _CountryPhotoRow({
     required this.country,
@@ -474,7 +464,7 @@ class _CountryPhotoRow extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: docs.length,
               itemBuilder: (context, i) {
-                final data = docs[i].data() as Map<String, dynamic>;
+                final data = docs[i];
                 final imageUrl = data['imageUrl'] as String? ?? '';
                 final globalIndex = allDocs.indexOf(docs[i]);
                 return GestureDetector(
@@ -482,12 +472,7 @@ class _CountryPhotoRow extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => StoryViewer(
-                        photos: allDocs
-                            .map((d) => {
-                                  'id': d.id,
-                                  ...(d.data() as Map<String, dynamic>),
-                                })
-                            .toList(),
+                        photos: allDocs,
                         initialIndex: globalIndex >= 0 ? globalIndex : 0,
                       ),
                     ),

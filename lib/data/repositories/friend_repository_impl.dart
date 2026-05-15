@@ -47,18 +47,20 @@ class FriendRepositoryImpl implements IFriendRepository {
 
   @override
   Future<void> sendFriendRequest(String fromUserId, String toUserId) async {
-    await _datasource.sendFriendRequest(fromUserId, toUserId);
+    // Datasource Cloud Function callable only needs the recipient; sender is
+    // taken from request.auth.uid server-side.
+    await _datasource.sendFriendRequest(toUserId);
   }
 
   @override
   Future<void> cancelFriendRequest(String fromUserId, String toUserId) async {
-    await _datasource.cancelFriendRequest(fromUserId, toUserId);
+    await _datasource.cancelFriendRequest(toUserId);
   }
 
   @override
   Future<void> acceptFriendRequest(
       String requestId, String fromUserId, String toUserId) async {
-    await _datasource.acceptFriendRequest(requestId, fromUserId, toUserId);
+    await _datasource.acceptFriendRequest(requestId);
   }
 
   @override
@@ -68,6 +70,6 @@ class FriendRepositoryImpl implements IFriendRepository {
 
   @override
   Future<void> removeFriend(String currentUserId, String friendId) async {
-    await _datasource.removeFriend(currentUserId, friendId);
+    await _datasource.removeFriend(friendId);
   }
 }

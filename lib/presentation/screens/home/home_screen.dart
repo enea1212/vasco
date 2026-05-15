@@ -361,6 +361,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (pickedFile == null) return;
 
+      // 2.5 Pick co-authors (friends to tag on the post)
+      if (!context.mounted) return;
+      final friends = context.read<FriendsProvider>().friends;
+      final coAuthorIds = await _pickCoAuthors(context, friends);
+      if (coAuthorIds == null) return; // user cancelled the picker
+
       SpotifyTrack? spotifyTrack;
       if (await SpotifyService.isConnected()) {
         spotifyTrack = await SpotifyService.getCurrentTrack();
@@ -405,6 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
         spotifySong: spotifyTrack?.songName,
         spotifyArtist: spotifyTrack?.artistName,
         spotifyAlbumArt: spotifyTrack?.albumArtUrl,
+        coAuthorIds: coAuthorIds,
       );
 
       // 6. Actualizează lista de țări vizitate
@@ -440,6 +447,163 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _isSharingLocation = false);
     }
+  }
+
+  /// Lets the user tag friends as co-authors before uploading the photo.
+  /// Returns the selected uids, or `null` if the user cancelled.
+  Future<List<String>?> _pickCoAuthors(
+    BuildContext context,
+    List<UserEntity> friends,
+  ) async {
+    final selected = <String>{};
+    return showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setInner) => DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.92,
+          builder: (_, controller) => Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 4),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Tag co-authors',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'They will get a request to share this post.',
+                      style: TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: friends.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No friends to tag.',
+                            style: TextStyle(color: AppColors.textHint),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: controller,
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          itemCount: friends.length,
+                          itemBuilder: (_, i) {
+                            final f = friends[i];
+                            final isSelected = selected.contains(f.id);
+                            return CheckboxListTile(
+                              value: isSelected,
+                              onChanged: (_) => setInner(() {
+                                if (isSelected) {
+                                  selected.remove(f.id);
+                                } else {
+                                  selected.add(f.id);
+                                }
+                              }),
+                              dense: true,
+                              activeColor: AppColors.primary,
+                              title: Text(
+                                f.displayName ?? f.email,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              secondary: CircleAvatar(
+                                radius: 18,
+                                backgroundImage:
+                                    (f.photoUrl?.isNotEmpty == true)
+                                        ? NetworkImage(f.photoUrl!)
+                                        : null,
+                                backgroundColor: AppColors.surfaceAlt,
+                                child: (f.photoUrl?.isNotEmpty == true)
+                                    ? null
+                                    : const Icon(
+                                        Icons.person_rounded,
+                                        color: AppColors.textHint,
+                                        size: 18,
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    8,
+                    20,
+                    MediaQuery.of(sheetCtx).padding.bottom + 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(sheetCtx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () =>
+                              Navigator.pop(sheetCtx, selected.toList()),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            selected.isEmpty
+                                ? 'Post solo'
+                                : 'Post & tag (${selected.length})',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Simple GeoJSON point-in-polygon country detection.

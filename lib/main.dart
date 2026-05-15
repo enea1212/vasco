@@ -94,6 +94,11 @@ import 'package:vasco/domain/usecases/swipe/get_candidates_usecase.dart';
 import 'package:vasco/domain/usecases/swipe/swipe_usecase.dart';
 import 'package:vasco/domain/usecases/swipe/watch_matches_usecase.dart';
 
+// ── Use-cases: co-authoring ───────────────────────────────────────────────────
+import 'package:vasco/domain/usecases/coauthoring/watch_pending_coauthor_requests_usecase.dart';
+import 'package:vasco/domain/usecases/coauthoring/accept_coauthor_request_usecase.dart';
+import 'package:vasco/domain/usecases/coauthoring/decline_coauthor_request_usecase.dart';
+
 // ── Domain providers ──────────────────────────────────────────────────────────
 import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'package:vasco/presentation/providers/domain/friends_provider.dart';
@@ -102,6 +107,7 @@ import 'package:vasco/presentation/providers/domain/location_provider.dart';
 
 import 'package:vasco/presentation/providers/domain/messaging_provider.dart';
 import 'package:vasco/presentation/providers/domain/swipe_provider.dart';
+import 'package:vasco/presentation/providers/domain/coauthoring_provider.dart';
 
 // ── UI providers ──────────────────────────────────────────────────────────────
 import 'package:vasco/presentation/providers/ui/map_ui_provider.dart';
@@ -308,6 +314,18 @@ Future<void> main() async {
               GetCandidatesUsecase(repo),
               SwipeUsecase(repo),
               WatchMatchesUsecase(repo),
+            );
+          },
+        ),
+
+        // CoAuthoringProvider(WatchPending..., Accept..., Decline...)
+        ChangeNotifierProvider<CoAuthoringProvider>(
+          create: (ctx) {
+            final repo = ctx.read<IPostRepository>();
+            return CoAuthoringProvider(
+              WatchPendingCoAuthorRequestsUsecase(repo),
+              AcceptCoAuthorRequestUsecase(repo),
+              DeclineCoAuthorRequestUsecase(repo),
             );
           },
         ),

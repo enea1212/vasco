@@ -10,6 +10,9 @@ extension PostModelToEntity on PostModel {
         imageUrl: imageUrl,
         description: description,
         createdAt: createdAt,
+        coAuthorIds: coAuthorIds,
+        acceptedCoAuthorIds: acceptedCoAuthorIds,
+        pendingCoAuthorIds: pendingCoAuthorIds,
       );
 }
 
@@ -21,4 +24,14 @@ PostModel postModelFromMap(Map<String, dynamic> map, String id) => PostModel(
       description: map['description'] as String? ?? '',
       createdAt:
           (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      coAuthorIds: _stringList(map['coAuthorIds']),
+      acceptedCoAuthorIds: _stringList(map['acceptedCoAuthorIds']),
+      pendingCoAuthorIds: _stringList(map['pendingCoAuthorIds']),
     );
+
+List<String> _stringList(dynamic raw) {
+  if (raw is List) {
+    return raw.whereType<String>().toList();
+  }
+  return const [];
+}

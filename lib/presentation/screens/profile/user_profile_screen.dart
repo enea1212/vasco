@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/core/constants/app_colors.dart';
 import 'package:vasco/data/datasources/remote/message_remote_datasource.dart';
+import 'package:vasco/data/datasources/remote/post_remote_datasource.dart';
 import 'package:vasco/presentation/providers/domain/friends_provider.dart';
 import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'package:vasco/presentation/screens/chat/chat_screen.dart';
@@ -34,32 +35,30 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _loadingUser = true;
   bool _friendActionLoading = false;
   bool _hasPendingRequest = false;
-  Stream<QuerySnapshot>? _photosStream;
+  Stream<List<Map<String, dynamic>>>? _photosStream;
 
   @override
   void initState() {
     super.initState();
-    _photosStream = FirebaseFirestore.instance
-        .collection('location_photos')
-        .where('userId', isEqualTo: widget.userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots();
-    _loadUserData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      setState(() {
+        _photosStream = context
+            .read<PostRemoteDatasource>()
+            .watchUserPosts(widget.userId);
+      });
       _checkPendingRequest();
     });
+    _loadUserData();
   }
 
   Future<void> _onRefresh() async {
     await Future.wait([_loadUserData(), _checkPendingRequest()]);
     if (mounted) {
       setState(() {
-        _photosStream = FirebaseFirestore.instance
-            .collection('location_photos')
-            .where('userId', isEqualTo: widget.userId)
-            .orderBy('createdAt', descending: true)
-            .snapshots();
+        _photosStream = context
+            .read<PostRemoteDatasource>()
+            .watchUserPosts(widget.userId);
       });
     }
   }
@@ -263,10 +262,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ],
               ),
             )
-          : StreamBuilder<QuerySnapshot>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _photosStream,
               builder: (context, photosSnap) {
-                final photoDocs = photosSnap.data?.docs ?? [];
+                final photoDocs =
+                    photosSnap.data ?? const <Map<String, dynamic>>[];
                 return ScrollConfiguration(
                   behavior: const NoGlowScrollBehavior(),
                   child: CustomScrollView(
@@ -608,7 +608,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildPhotosSection(List<QueryDocumentSnapshot> photoDocs) {
+  Widget _buildPhotosSection(List<Map<String, dynamic>> photoDocs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Column(
@@ -657,7 +657,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
               itemCount: photoDocs.length,
               itemBuilder: (context, index) {
-                final data = photoDocs[index].data() as Map<String, dynamic>;
+                final data = photoDocs[index];
                 final imageUrl = data['imageUrl'] as String? ?? '';
                 final location =
                     data['locationName'] as String? ??
@@ -669,9 +669,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => StoryViewer(
-                        photos: photoDocs
-                            .map((d) => {'id': d.id, ...(d.data() as Map<String, dynamic>)})
-                            .toList(),
+                        photos: photoDocs,
                         initialIndex: index,
                       ),
                     ),

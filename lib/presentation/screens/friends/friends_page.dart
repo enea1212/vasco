@@ -1,8 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vasco/domain/entities/friend_request_entity.dart';
+import 'package:vasco/domain/entities/post_entity.dart';
 import 'package:vasco/domain/entities/user_entity.dart';
 import 'package:vasco/domain/repositories/i_user_repository.dart';
+import 'package:vasco/presentation/providers/domain/coauthoring_provider.dart';
 import 'package:vasco/presentation/providers/domain/friends_provider.dart';
 import 'package:vasco/presentation/providers/domain/user_provider.dart';
 import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
@@ -24,7 +27,7 @@ class _FriendsPageState extends State<FriendsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -41,6 +44,7 @@ class _FriendsPageState extends State<FriendsPage>
     }
 
     final pendingCount = context.watch<FriendsProvider>().pendingCount;
+    final taggedCount = context.watch<CoAuthoringProvider>().pendingCount;
 
     return Column(
       children: [
@@ -75,49 +79,76 @@ class _FriendsPageState extends State<FriendsPage>
                 text: 'Search',
               ),
               Tab(
-                child: Stack(
+                iconMargin: EdgeInsets.zero,
+                icon: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.person_add_rounded, size: 20),
-                        SizedBox(height: 2),
-                        Text(
-                          'Requests',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                    const Icon(Icons.person_add_rounded, size: 20),
                     if (pendingCount > 0)
                       Positioned(
-                        right: -10,
+                        right: -8,
                         top: -4,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(3),
+                          constraints:
+                              const BoxConstraints(minWidth: 14, minHeight: 14),
                           decoration: const BoxDecoration(
                             color: AppColors.danger,
                             shape: BoxShape.circle,
                           ),
                           child: Text(
                             '$pendingCount',
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: 9,
                               fontWeight: FontWeight.bold,
+                              height: 1,
                             ),
                           ),
                         ),
                       ),
                   ],
                 ),
+                text: 'Requests',
               ),
               const Tab(
                 icon: Icon(Icons.people_rounded, size: 20),
                 text: 'Friends',
+              ),
+              Tab(
+                iconMargin: EdgeInsets.zero,
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.bookmark_add_rounded, size: 20),
+                    if (taggedCount > 0)
+                      Positioned(
+                        right: -8,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          constraints:
+                              const BoxConstraints(minWidth: 14, minHeight: 14),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$taggedCount',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                text: 'Tagged',
               ),
             ],
           ),
@@ -129,6 +160,7 @@ class _FriendsPageState extends State<FriendsPage>
               _SearchTab(currentUser: currentUser),
               _RequestsTab(currentUser: currentUser),
               _FriendsTab(currentUser: currentUser),
+              const _TaggedTab(),
             ],
           ),
         ),
@@ -828,5 +860,297 @@ class _FriendsTab extends StatelessWidget {
           ),
         ) ??
         false;
+  }
+}
+
+// ─── Tab Tagged (co-author requests) ─────────────────────────────────────────
+
+class _TaggedTab extends StatelessWidget {
+  const _TaggedTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<CoAuthoringProvider>();
+    final pending = provider.pending;
+
+    if (provider.isLoading && pending.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          strokeWidth: 2,
+        ),
+      );
+    }
+
+    if (pending.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.bookmark_border_rounded,
+                size: 36,
+                color: AppColors.textHint,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No tagged posts',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'When friends tag you on a post, it shows up here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textHint, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
+      itemCount: pending.length,
+      itemBuilder: (_, i) => _TaggedRequestTile(post: pending[i]),
+    );
+  }
+}
+
+class _TaggedRequestTile extends StatefulWidget {
+  final PostEntity post;
+  const _TaggedRequestTile({required this.post});
+
+  @override
+  State<_TaggedRequestTile> createState() => _TaggedRequestTileState();
+}
+
+class _TaggedRequestTileState extends State<_TaggedRequestTile> {
+  UserEntity? _author;
+  bool _loadingAuthor = true;
+  bool _actionLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAuthor();
+  }
+
+  Future<void> _loadAuthor() async {
+    final entity =
+        await context.read<IUserRepository>().getUser(widget.post.userId);
+    if (mounted) {
+      setState(() {
+        _author = entity;
+        _loadingAuthor = false;
+      });
+    }
+  }
+
+  Future<void> _accept() async {
+    if (_actionLoading) return;
+    setState(() => _actionLoading = true);
+    try {
+      await context.read<CoAuthoringProvider>().accept(widget.post.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to your profile.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _actionLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not accept. Try again.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _decline() async {
+    if (_actionLoading) return;
+    setState(() => _actionLoading = true);
+    try {
+      await context.read<CoAuthoringProvider>().decline(widget.post.id);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _actionLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not decline. Try again.')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _loadingAuthor
+        ? 'Loading...'
+        : (_author?.displayName ?? _author?.email ?? 'A friend');
+    final photo = _author?.photoUrl;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusCard),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: AppSizes.shadowBlurLg,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header (author)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _author == null
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UserProfileScreen(
+                                userId: widget.post.userId,
+                                initialDisplayName: _author?.displayName,
+                                initialPhotoUrl: _author?.photoUrl,
+                              ),
+                            ),
+                          ),
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundImage: (photo?.isNotEmpty == true)
+                        ? NetworkImage(photo!)
+                        : null,
+                    backgroundColor: AppColors.surfaceAlt,
+                    child: (photo?.isNotEmpty == true)
+                        ? null
+                        : const Icon(
+                            Icons.person_rounded,
+                            color: AppColors.textHint,
+                            size: 18,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Text(
+                        'tagged you as co-author',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Image preview
+          if (widget.post.imageUrl.isNotEmpty)
+            AspectRatio(
+              aspectRatio: 1,
+              child: CachedNetworkImage(
+                imageUrl: widget.post.imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, _) =>
+                    Container(color: AppColors.surfaceAlt),
+                errorWidget: (_, _, _) => Container(
+                  color: AppColors.surfaceAlt,
+                  child: const Center(
+                    child: Icon(
+                      Icons.image_not_supported_rounded,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Actions
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _actionLoading ? null : _decline,
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    label: const Text('Decline'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: const BorderSide(
+                        color: AppColors.border,
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _actionLoading ? null : _accept,
+                    icon: _actionLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Accept'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
