@@ -2,7 +2,9 @@ import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:vasco/core/utils/coauthor_names.dart';
 import 'package:vasco/presentation/screens/profile/profile_page.dart';
 import 'package:vasco/presentation/screens/profile/user_profile_screen.dart';
 import 'package:vasco/services/geocoding_service.dart';
@@ -30,6 +32,8 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   static final Map<String, String> _geoCache = {};
   String? _locationLabel;
+  final Map<String, String> _localNames = {};
+  final List<TapGestureRecognizer> _recognizers = [];
   bool _isLiking = false;
   Stream<DocumentSnapshot>? _likeStream;
 
@@ -37,6 +41,7 @@ class _PostCardState extends State<PostCard> {
   void initState() {
     super.initState();
     _resolveLocation();
+    _resolveCoAuthorNames(_currentCoAuthorIds());
     if (widget.currentUserId.isNotEmpty) {
       _likeStream = FirebaseFirestore.instance
           .collection('location_photos')
@@ -45,6 +50,159 @@ class _PostCardState extends State<PostCard> {
           .doc(widget.currentUserId)
           .snapshots();
     }
+  }
+
+  @override
+  void didUpdateWidget(PostCard old) {
+    super.didUpdateWidget(old);
+    final prev = _idsFrom(old.data['acceptedCoAuthorIds']);
+    final next = _currentCoAuthorIds();
+    if (!_listEquals(prev, next)) {
+      _resolveCoAuthorNames(next);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  List<String> _currentCoAuthorIds() =>
+      _idsFrom(widget.data['acceptedCoAuthorIds']);
+
+  List<String> _idsFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw.whereType<String>().toList();
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  Future<void> _resolveCoAuthorNames(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final names = await CoAuthorNames.resolve(ids);
+    if (!mounted) return;
+    setState(() {
+      for (var i = 0; i < ids.length; i++) {
+        _localNames[ids[i]] = names[i];
+      }
+    });
+  }
+
+  void _openUserProfile(String uid, {String? name, String? photoUrl}) {
+    if (uid.isEmpty) return;
+    if (uid == widget.currentUserId) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ProfileScreen(showBackButton: true),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(
+            userId: uid,
+            initialDisplayName: name,
+            initialPhotoUrl: (photoUrl?.isNotEmpty == true) ? photoUrl : null,
+          ),
+        ),
+      );
+    }
+  }
+
+  TapGestureRecognizer _newRecognizer(VoidCallback onTap) {
+    final r = TapGestureRecognizer()..onTap = onTap;
+    _recognizers.add(r);
+    return r;
+  }
+
+  Widget _buildAuthorsRichText({
+    required String creatorName,
+    required String creatorUid,
+    required String creatorPhotoUrl,
+  }) {
+    // Dispose previously created recognizers; we rebuild on every render.
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+
+    const baseStyle = TextStyle(
+      fontWeight: FontWeight.w700,
+      fontSize: 13.5,
+      color: AppColors.textPrimary,
+    );
+    const linkStyle = TextStyle(
+      fontWeight: FontWeight.w700,
+      fontSize: 13.5,
+      color: AppColors.textPrimary,
+    );
+    const separatorStyle = TextStyle(
+      fontWeight: FontWeight.w500,
+      fontSize: 13.5,
+      color: AppColors.textMuted,
+    );
+
+    final spans = <InlineSpan>[
+      TextSpan(
+        text: creatorName,
+        style: linkStyle,
+        recognizer: _newRecognizer(
+          () => _openUserProfile(
+            creatorUid,
+            name: creatorName,
+            photoUrl: creatorPhotoUrl,
+          ),
+        ),
+      ),
+    ];
+
+    final ids = _currentCoAuthorIds();
+    if (ids.isNotEmpty) {
+      // Limit how many co-author names we render to keep the row tidy.
+      final maxNames = ids.length > 2 ? 1 : ids.length;
+      spans.add(const TextSpan(text: ' & ', style: separatorStyle));
+      for (var i = 0; i < maxNames; i++) {
+        final uid = ids[i];
+        final name = _localNames[uid] ?? 'User';
+        if (i > 0) {
+          spans.add(const TextSpan(text: ', ', style: separatorStyle));
+        }
+        spans.add(
+          TextSpan(
+            text: name,
+            style: linkStyle,
+            recognizer: _newRecognizer(
+              () => _openUserProfile(uid, name: name),
+            ),
+          ),
+        );
+      }
+      if (ids.length > maxNames) {
+        spans.add(
+          TextSpan(
+            text: ' +${ids.length - maxNames}',
+            style: separatorStyle,
+          ),
+        );
+      }
+    }
+
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(style: baseStyle, children: spans),
+    );
   }
 
   Future<void> _resolveLocation() async {
@@ -295,38 +453,17 @@ class _PostCardState extends State<PostCard> {
           child: Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (postUserId.isNotEmpty) {
-                      if (postUserId == currentUserId) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const ProfileScreen(showBackButton: true),
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UserProfileScreen(
-                              userId: postUserId,
-                              initialDisplayName: displayName,
-                              initialPhotoUrl: userPhotoUrl.isNotEmpty
-                                  ? userPhotoUrl
-                                  : null,
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      // Avatar cu border gradient
-                      Container(
+                child: Row(
+                  children: [
+                    // Avatar cu border gradient — tap → creator profile
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openUserProfile(
+                        postUserId,
+                        name: displayName,
+                        photoUrl: userPhotoUrl,
+                      ),
+                      child: Container(
                         width: 38,
                         height: 38,
                         padding: const EdgeInsets.all(1.5),
@@ -364,34 +501,31 @@ class _PostCardState extends State<PostCard> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildAuthorsRichText(
+                            creatorName: displayName,
+                            creatorUid: postUserId,
+                            creatorPhotoUrl: userPhotoUrl,
+                          ),
+                          if (locationLabel != null)
                             Text(
-                              displayName,
+                              locationLabel,
                               style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
-                                color: AppColors.textPrimary,
+                                fontSize: 11,
+                                color: AppColors.textMuted,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            if (locationLabel != null)
-                              Text(
-                                locationLabel,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const Icon(
